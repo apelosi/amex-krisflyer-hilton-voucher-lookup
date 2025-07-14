@@ -168,13 +168,13 @@ export function VoucherForm() {
       
       // Mock results - in real implementation, this would make actual API calls
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Normalize to start of day
       const expiry = new Date(voucherExpiry);
-      expiry.setHours(23, 59, 59, 999); // Normalize to end of day to ensure inclusion
       const mockResults: AvailabilityResult[] = [];
       
       // Create date range from today to expiry date (inclusive)
       const currentDate = new Date(today);
+      
+      // Continue until we've processed the expiry date
       while (currentDate <= expiry) {
         const isAvailable = Math.random() > 0.6; // Random availability for demo
         const roomCount = isAvailable ? Math.floor(Math.random() * 5) + 1 : 0;
@@ -184,6 +184,11 @@ export function VoucherForm() {
           available: isAvailable,
           roomCount: isAvailable ? roomCount : undefined
         });
+        
+        // If we've just processed the expiry date, break
+        if (currentDate.toDateString() === expiry.toDateString()) {
+          break;
+        }
         
         // Move to next day
         currentDate.setDate(currentDate.getDate() + 1);
