@@ -67,32 +67,29 @@ const hotelsByDestination: Record<string, string[]> = {
   ]
 };
 
-// Hotel code mapping for Hilton booking URLs
-// Note: These codes are derived from actual form submissions at apac.hilton.com/amexkrisflyer
-const hotelCodes: Record<string, string> = {
-  "Conrad Centennial Singapore": "SINCCCC", // TODO: Verify actual code
-  "Hilton Singapore Orchard": "SINOR", // Verified from form submission
-  "DoubleTree by Hilton Singapore": "SINSGDI", // TODO: Verify actual code
-  "Conrad Bangkok": "BKKCCCI",
-  "Hilton Bangkok": "BKKTDHI",
-  "DoubleTree by Hilton Bangkok": "BKKTDDI",
-  "Conrad Tokyo": "TYOCCCC",
-  "Hilton Tokyo": "TYOHIHI",
-  "Hilton Tokyo Bay": "TYOTBHI",
-  "Conrad Hong Kong": "HKGCCCC",
-  "Hilton Hong Kong": "HKGHIHI",
-  "Hilton Kuala Lumpur": "KULHIHI",
-  "DoubleTree by Hilton Kuala Lumpur": "KULDDDT",
-  "Conrad Sydney": "SYDCCCC",
-  "Hilton Sydney": "SYDHIHI",
-  "Conrad Seoul": "SELCCCC",
-  "Hilton Seoul": "SELHIHI",
-  "Conrad Manila": "MNLCCCC",
-  "Hilton Manila": "MNLHIHI",
-  "Conrad Jakarta": "JKTCCCC",
-  "Hilton Jakarta": "JKTHIHI",
-  "Conrad Mumbai": "BOMCCCC",
-  "Hilton Mumbai": "BOMHIHI"
+// Function to dynamically get Hilton booking parameters
+// Note: This requires browser automation to submit forms at apac.hilton.com/amexkrisflyer
+// and capture the resulting URL parameters - currently not available
+const getHiltonBookingParams = async (
+  creditCard: string,
+  voucherCode: string, 
+  destination: string,
+  hotel: string,
+  arrivalDate: string
+) => {
+  // TODO: Implement form submission to apac.hilton.com/amexkrisflyer
+  // This would require browser automation tools like Puppeteer/Playwright to:
+  // 1. Navigate to https://apac.hilton.com/amexkrisflyer
+  // 2. Fill in the form with provided values
+  // 3. Submit the form
+  // 4. Capture the redirect URL to extract ctyhocn and groupCode parameters
+  
+  console.warn('Dynamic parameter extraction not implemented - browser automation required');
+  
+  return {
+    ctyhocn: 'PLACEHOLDER', // Should be extracted from form submission redirect
+    groupCode: 'PLACEHOLDER' // Should be extracted from form submission redirect
+  };
 };
 
 interface AvailabilityResult {
@@ -185,17 +182,20 @@ export function VoucherForm() {
   };
 
   const generateBookingUrl = (date: string) => {
-    const hotelCode = hotelCodes[hotel];
+    // Note: Dynamic parameter extraction would require browser automation
+    // to submit forms at apac.hilton.com/amexkrisflyer and capture redirect URLs
+    // Currently using placeholder values - would need Puppeteer/Playwright to implement properly
+    
     const arrivalDate = date;
     const departureDate = new Date(date);
     departureDate.setDate(departureDate.getDate() + 1);
     const departureDateStr = departureDate.toISOString().split('T')[0];
     
     const params = new URLSearchParams({
-      ctyhocn: hotelCode || 'UNKNOWN',
+      ctyhocn: 'PLACEHOLDER', // Should be dynamically extracted from form submission
       arrivalDate: arrivalDate,
       departureDate: departureDateStr,
-      groupCode: 'ZKFA25', // Verified from actual form submission
+      groupCode: 'PLACEHOLDER', // Should be dynamically extracted from form submission  
       room1NumAdults: '1',
       cid: 'OH,MB,APACAMEXKrisFlyerComplimentaryNight,MULTIBR,OfferCTA,Offer,Book'
     });
