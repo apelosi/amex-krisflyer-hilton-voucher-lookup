@@ -67,6 +67,33 @@ const hotelsByDestination: Record<string, string[]> = {
   ]
 };
 
+// Hotel code mapping for Hilton booking URLs
+const hotelCodes: Record<string, string> = {
+  "Conrad Centennial Singapore": "SINCCCC",
+  "Hilton Singapore Orchard": "SINSGHI",
+  "DoubleTree by Hilton Singapore": "SINSGDI",
+  "Conrad Bangkok": "BKKCCCI",
+  "Hilton Bangkok": "BKKTDHI",
+  "DoubleTree by Hilton Bangkok": "BKKTDDI",
+  "Conrad Tokyo": "TYOCCCC",
+  "Hilton Tokyo": "TYOHIHI",
+  "Hilton Tokyo Bay": "TYOTBHI",
+  "Conrad Hong Kong": "HKGCCCC",
+  "Hilton Hong Kong": "HKGHIHI",
+  "Hilton Kuala Lumpur": "KULHIHI",
+  "DoubleTree by Hilton Kuala Lumpur": "KULDDDT",
+  "Conrad Sydney": "SYDCCCC",
+  "Hilton Sydney": "SYDHIHI",
+  "Conrad Seoul": "SELCCCC",
+  "Hilton Seoul": "SELHIHI",
+  "Conrad Manila": "MNLCCCC",
+  "Hilton Manila": "MNLHIHI",
+  "Conrad Jakarta": "JKTCCCC",
+  "Hilton Jakarta": "JKTHIHI",
+  "Conrad Mumbai": "BOMCCCC",
+  "Hilton Mumbai": "BOMHIHI"
+};
+
 interface AvailabilityResult {
   date: string;
   available: boolean;
@@ -156,6 +183,25 @@ export function VoucherForm() {
     });
   };
 
+  const generateBookingUrl = (date: string) => {
+    const hotelCode = hotelCodes[hotel];
+    const arrivalDate = date;
+    const departureDate = new Date(date);
+    departureDate.setDate(departureDate.getDate() + 1);
+    const departureDateStr = departureDate.toISOString().split('T')[0];
+    
+    const params = new URLSearchParams({
+      ctyhocn: hotelCode || 'UNKNOWN',
+      arrivalDate: arrivalDate,
+      departureDate: departureDateStr,
+      groupCode: 'AMEXKF',
+      room1NumAdults: '1',
+      cid: 'OH,MB,APACAMEXKrisFlyerComplimentaryNight,MULTIBR,OfferCTA,Offer,Book'
+    });
+
+    return `https://www.hilton.com/en/book/reservation/rooms/?${params.toString()}`;
+  };
+
   return (
     <div className="space-y-8">
       <Card className="bg-gradient-card shadow-luxury border-0">
@@ -232,7 +278,7 @@ export function VoucherForm() {
                 min={new Date().toISOString().split('T')[0]}
               />
               <p className="text-xs text-muted-foreground">
-                We'll check availability from today until your voucher expires
+                We'll check availability from today through when your voucher expires
               </p>
             </div>
 
@@ -312,7 +358,7 @@ export function VoucherForm() {
               Availability Results
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Showing availability for {hotel} from today until {formatDate(voucherExpiry)}
+              Showing availability for {hotel} from today through {formatDate(voucherExpiry)}
             </p>
           </CardHeader>
           <CardContent>
@@ -337,19 +383,22 @@ export function VoucherForm() {
                     </span>
                   </div>
                   <div className="text-right">
-                    {result.available ? (
-                      <Button
-                        variant="link"
-                        className="p-0 h-auto text-success font-semibold hover:underline"
-                        onClick={() => window.open('https://www.hilton.com/en/book/reservation/rooms/', '_blank')}
-                      >
-                        {result.roomCount} room{result.roomCount !== 1 ? 's' : ''} available
-                      </Button>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">
-                        No availability
-                      </span>
-                    )}
+                    <a
+                      href={generateBookingUrl(result.date)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`${
+                        result.available
+                          ? "text-success font-semibold underline hover:no-underline"
+                          : "text-muted-foreground text-sm underline hover:no-underline"
+                      }`}
+                    >
+                      {result.available ? (
+                        `${result.roomCount} room${result.roomCount !== 1 ? 's' : ''} available`
+                      ) : (
+                        "View rooms"
+                      )}
+                    </a>
                   </div>
                 </div>
               ))}
