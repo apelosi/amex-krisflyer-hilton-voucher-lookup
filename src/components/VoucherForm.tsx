@@ -112,15 +112,20 @@ export function VoucherForm() {
       const expiry = new Date(voucherExpiry);
       const mockResults: AvailabilityResult[] = [];
       
-      for (let d = new Date(today); d <= expiry; d.setDate(d.getDate() + 1)) {
+      // Create date range from today to expiry date (inclusive)
+      const currentDate = new Date(today);
+      while (currentDate <= expiry) {
         const isAvailable = Math.random() > 0.6; // Random availability for demo
         const roomCount = isAvailable ? Math.floor(Math.random() * 5) + 1 : 0;
         
         mockResults.push({
-          date: d.toISOString().split('T')[0],
+          date: currentDate.toISOString().split('T')[0],
           available: isAvailable,
           roomCount: isAvailable ? roomCount : undefined
         });
+        
+        // Move to next day
+        currentDate.setDate(currentDate.getDate() + 1);
       }
       
       setResults(mockResults);
@@ -207,6 +212,24 @@ export function VoucherForm() {
               )}
             </div>
 
+            {/* Voucher Expiry Date */}
+            <div className="space-y-2">
+              <Label htmlFor="voucherExpiry" className="text-sm font-semibold flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-primary" />
+                Voucher Expiry Date
+              </Label>
+              <Input
+                id="voucherExpiry"
+                type="date"
+                value={voucherExpiry}
+                onChange={(e) => setVoucherExpiry(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+              />
+              <p className="text-xs text-muted-foreground">
+                We'll check availability from today until your voucher expires
+              </p>
+            </div>
+
             {/* Destination Field - Only show when card and voucher are valid */}
             {canShowDestination && (
               <div className="space-y-2">
@@ -248,26 +271,6 @@ export function VoucherForm() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            )}
-
-            {/* Voucher Expiry Date */}
-            {hotel && (
-              <div className="space-y-2">
-                <Label htmlFor="voucherExpiry" className="text-sm font-semibold flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-primary" />
-                  Voucher Expiry Date
-                </Label>
-                <Input
-                  id="voucherExpiry"
-                  type="date"
-                  value={voucherExpiry}
-                  onChange={(e) => setVoucherExpiry(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                />
-                <p className="text-xs text-muted-foreground">
-                  We'll check availability from today until your voucher expires
-                </p>
               </div>
             )}
 
