@@ -110,9 +110,9 @@ export function VoucherForm() {
   
   const { toast } = useToast();
 
-  const isFormValid = creditCard.length === 6 && voucherCode.length === 10 && destination && hotel && voucherExpiry;
+  const isFormValid = creditCard.length === 6 && voucherCode.length === 10 && destination && destination !== "" && hotel && hotel !== "" && voucherExpiry;
   const canShowDestination = creditCard.length === 6 && voucherCode.length === 10 && voucherExpiry;
-  const availableHotels = destination ? hotelsByDestination[destination] || [] : [];
+  const availableHotels = destination && destination !== "" ? hotelsByDestination[destination] || [] : [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -297,6 +297,7 @@ export function VoucherForm() {
                     <SelectValue placeholder="Select Destination" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="">Select Destination</SelectItem>
                     {destinations.map((dest) => (
                       <SelectItem key={dest} value={dest}>
                         {dest}
@@ -308,7 +309,7 @@ export function VoucherForm() {
             )}
 
             {/* Hotel Field - Only show when destination is selected */}
-            {destination && (
+            {destination && destination !== "" && (
               <div className="space-y-2">
                 <Label htmlFor="hotel" className="text-sm font-semibold flex items-center gap-2">
                   <Building className="h-4 w-4 text-primary" />
@@ -319,6 +320,7 @@ export function VoucherForm() {
                     <SelectValue placeholder="Select Hotel" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="">Select Hotel</SelectItem>
                     {availableHotels.map((hotelName) => (
                       <SelectItem key={hotelName} value={hotelName}>
                         {hotelName}
