@@ -68,10 +68,11 @@ const hotelsByDestination: Record<string, string[]> = {
 };
 
 // Hotel code mapping for Hilton booking URLs
+// Note: These codes are derived from actual form submissions at apac.hilton.com/amexkrisflyer
 const hotelCodes: Record<string, string> = {
-  "Conrad Centennial Singapore": "SINCCCC",
-  "Hilton Singapore Orchard": "SINSGHI",
-  "DoubleTree by Hilton Singapore": "SINSGDI",
+  "Conrad Centennial Singapore": "SINCCCC", // TODO: Verify actual code
+  "Hilton Singapore Orchard": "SINOR", // Verified from form submission
+  "DoubleTree by Hilton Singapore": "SINSGDI", // TODO: Verify actual code
   "Conrad Bangkok": "BKKCCCI",
   "Hilton Bangkok": "BKKTDHI",
   "DoubleTree by Hilton Bangkok": "BKKTDDI",
@@ -194,7 +195,7 @@ export function VoucherForm() {
       ctyhocn: hotelCode || 'UNKNOWN',
       arrivalDate: arrivalDate,
       departureDate: departureDateStr,
-      groupCode: 'AMEXKF',
+      groupCode: 'ZKFA25', // Verified from actual form submission
       room1NumAdults: '1',
       cid: 'OH,MB,APACAMEXKrisFlyerComplimentaryNight,MULTIBR,OfferCTA,Offer,Book'
     });
