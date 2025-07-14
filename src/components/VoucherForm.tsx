@@ -86,7 +86,7 @@ export function VoucherForm() {
   const { toast } = useToast();
 
   const isFormValid = creditCard.length === 6 && voucherCode.length === 10 && destination && hotel && voucherExpiry;
-  const canShowDestination = creditCard.length === 6 && voucherCode.length === 10;
+  const canShowDestination = creditCard.length === 6 && voucherCode.length === 10 && voucherExpiry;
   const availableHotels = destination ? hotelsByDestination[destination] || [] : [];
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -235,7 +235,7 @@ export function VoucherForm() {
               <div className="space-y-2">
                 <Label htmlFor="destination" className="text-sm font-semibold flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-primary" />
-                  Select Destination
+                  Destination
                 </Label>
                 <Select value={destination} onValueChange={setDestination}>
                   <SelectTrigger>
@@ -249,6 +249,9 @@ export function VoucherForm() {
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  Select the Destination
+                </p>
               </div>
             )}
 
@@ -257,7 +260,7 @@ export function VoucherForm() {
               <div className="space-y-2">
                 <Label htmlFor="hotel" className="text-sm font-semibold flex items-center gap-2">
                   <Building className="h-4 w-4 text-primary" />
-                  Select Hotel
+                  Hotel
                 </Label>
                 <Select value={hotel} onValueChange={setHotel}>
                   <SelectTrigger>
@@ -271,6 +274,9 @@ export function VoucherForm() {
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  Select the Hotel
+                </p>
               </div>
             )}
 
