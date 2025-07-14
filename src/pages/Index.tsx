@@ -21,7 +21,7 @@ const Index = () => {
               Check availability across multiple dates automatically
             </p>
             <p className="text-sm text-white/80">
-              by <a href="https://vibez.ventures" target="_blank" rel="noopener noreferrer" className="hover:underline">Vibez Ventures</a> - Not affiliated with Hilton, AMEX, or KrisFlyer
+              by <a href="https://vibez.ventures" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline transition-all duration-200">Vibez Ventures</a> - Not affiliated with Hilton, AMEX, or KrisFlyer
             </p>
           </div>
         </div>
