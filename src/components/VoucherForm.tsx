@@ -263,8 +263,8 @@ export function VoucherForm() {
               Showing availability for {hotel} from today through {formatDate(voucherExpiry)}
             </p>
             <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-              <p className="text-xs text-yellow-800 dark:text-yellow-200">
-                <strong>Disclaimer:</strong> If I choose to view rooms, I acknowledge that I will be redirected to the Hilton reservation page to redeem 1 complimentary Standard Room night stay. Any additional night bookings will be chargeable. To book any additional nights, please proceed to Hilton.com. Booking may be cancelled, revoked or charged if found to be made through an invalid manner.
+              <p className="text-xs text-yellow-800 dark:text-yellow-200 italic">
+                If I choose to view rooms, I acknowledge that I will be redirected to the Hilton reservation page to redeem 1 complimentary Standard Room night stay. Any additional night bookings will be chargeable. To book any additional nights, please proceed to Hilton.com. Booking may be cancelled, revoked or charged if found to be made through an invalid manner.
               </p>
             </div>
           </CardHeader>
