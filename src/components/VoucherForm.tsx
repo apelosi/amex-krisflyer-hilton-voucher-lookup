@@ -101,8 +101,8 @@ interface AvailabilityResult {
 export function VoucherForm() {
   const [creditCard, setCreditCard] = useState("");
   const [voucherCode, setVoucherCode] = useState("");
-  const [destination, setDestination] = useState("");
-  const [hotel, setHotel] = useState("");
+  const [destination, setDestination] = useState<string | undefined>(undefined);
+  const [hotel, setHotel] = useState<string | undefined>(undefined);
   const [voucherExpiry, setVoucherExpiry] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<AvailabilityResult[]>([]);
@@ -110,9 +110,9 @@ export function VoucherForm() {
   
   const { toast } = useToast();
 
-  const isFormValid = creditCard.length === 6 && voucherCode.length === 10 && destination && destination !== "select-destination" && hotel && hotel !== "select-hotel" && voucherExpiry;
+  const isFormValid = creditCard.length === 6 && voucherCode.length === 10 && destination && hotel && voucherExpiry;
   const canShowDestination = creditCard.length === 6 && voucherCode.length === 10 && voucherExpiry;
-  const availableHotels = destination && destination !== "select-destination" ? hotelsByDestination[destination] || [] : [];
+  const availableHotels = destination ? hotelsByDestination[destination] || [] : [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -297,7 +297,6 @@ export function VoucherForm() {
                     <SelectValue placeholder="Select Destination" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="select-destination">Select Destination</SelectItem>
                     {destinations.map((dest) => (
                       <SelectItem key={dest} value={dest}>
                         {dest}
@@ -309,7 +308,7 @@ export function VoucherForm() {
             )}
 
             {/* Hotel Field - Only show when destination is selected */}
-            {destination && destination !== "select-destination" && (
+            {destination && (
               <div className="space-y-2">
                 <Label htmlFor="hotel" className="text-sm font-semibold flex items-center gap-2">
                   <Building className="h-4 w-4 text-primary" />
@@ -320,7 +319,6 @@ export function VoucherForm() {
                     <SelectValue placeholder="Select Hotel" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="select-hotel">Select Hotel</SelectItem>
                     {availableHotels.map((hotelName) => (
                       <SelectItem key={hotelName} value={hotelName}>
                         {hotelName}
