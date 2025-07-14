@@ -134,7 +134,9 @@ export function VoucherForm() {
       
       // Mock results - in real implementation, this would make actual API calls
       const today = new Date();
+      today.setHours(0, 0, 0, 0); // Normalize to start of day
       const expiry = new Date(voucherExpiry);
+      expiry.setHours(23, 59, 59, 999); // Normalize to end of day to ensure inclusion
       const mockResults: AvailabilityResult[] = [];
       
       // Create date range from today to expiry date (inclusive)
