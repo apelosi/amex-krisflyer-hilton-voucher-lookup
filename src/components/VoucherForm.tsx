@@ -8,25 +8,31 @@ import { CalendarIcon, CreditCard, MapPin, Building, Search, CheckCircle, XCircl
 import { useToast } from "@/hooks/use-toast";
 
 // Mock destination and hotel data based on actual Hilton AMEX KrisFlyer website
-const destinations = ["Australia", "China", "Hong Kong", "India", "Indonesia", "Japan", "Laos", "Malaysia", "Myanmar", "Nepal", "Papua New Guinea", "Philippines", "Singapore", "Sri Lanka", "Taiwan", "Thailand", "Vietnam"];
+const destinations = ["Australia", "Brunei", "Cambodia", "China", "Hong Kong", "India", "Indonesia", "Japan", "Laos", "Macau", "Malaysia", "Maldives", "Myanmar", "Nepal", "New Zealand", "Papua New Guinea", "Philippines", "Singapore", "South Korea", "Sri Lanka", "Taiwan", "Thailand", "Vietnam"];
 const hotelsByDestination: Record<string, string[]> = {
-  "Australia": ["Conrad Sydney", "Hilton Sydney", "DoubleTree by Hilton Sydney"],
-  "China": ["Conrad Beijing", "Hilton Shanghai", "DoubleTree by Hilton Shanghai"],
-  "Hong Kong": ["Conrad Hong Kong", "Hilton Hong Kong"],
-  "India": ["Conrad Mumbai", "Hilton Mumbai", "DoubleTree by Hilton New Delhi"],
-  "Indonesia": ["Conrad Jakarta", "Hilton Jakarta", "DoubleTree by Hilton Jakarta"],
-  "Japan": ["Conrad Tokyo", "Hilton Tokyo", "Hilton Tokyo Bay"],
+  "Australia": ["Conrad Brisbane", "Conrad Sydney", "Hilton Adelaide", "Hilton Brisbane", "Hilton Cairns", "Hilton Melbourne South Wharf", "Hilton Perth", "Hilton Sydney", "DoubleTree by Hilton Adelaide", "DoubleTree by Hilton Brisbane", "DoubleTree by Hilton Sydney"],
+  "Brunei": ["The Empire Brunei"],
+  "Cambodia": ["Hilton Siem Reap"],
+  "China": ["Conrad Beijing", "Conrad Dalian", "Conrad Guangzhou", "Conrad Macao Cotai Central", "Conrad Sanya Haitang Bay", "Conrad Shanghai", "Conrad Tianjin", "Hilton Beijing", "Hilton Beijing Capital Airport", "Hilton Changzhou", "Hilton Chengdu", "Hilton Chongqing", "Hilton Dalian", "Hilton Guangzhou Baiyun", "Hilton Guangzhou Tianhe", "Hilton Haikou", "Hilton Hangzhou Qiandao Lake Resort", "Hilton Harbin", "Hilton Hefei", "Hilton Jinan South", "Hilton Nanjing", "Hilton Nanjing Riverside", "Hilton Ningbo", "Hilton Qingdao", "Hilton Shanghai Hongqiao", "Hilton Shenyang", "Hilton Shenzhen Shekou Nanhai", "Hilton Suzhou", "Hilton Tianjin Eco-City", "Hilton Urumqi", "Hilton Wuhan Optics Valley", "Hilton Xi'an", "Hilton Xiamen", "Hilton Yantai Golden Coast", "DoubleTree by Hilton Beijing", "DoubleTree by Hilton Guangzhou", "DoubleTree by Hilton Shanghai - Pudong", "DoubleTree by Hilton Shenzhen Longgang"],
+  "Hong Kong": ["Conrad Hong Kong", "Hilton Garden Inn Hong Kong Mongkok"],
+  "India": ["Conrad Bengaluru", "Conrad Mumbai", "Conrad Pune", "Hilton Chennai", "Hilton Goa Resort", "Hilton Mumbai International Airport", "DoubleTree by Hilton Agra", "DoubleTree by Hilton Gurgaon-New Delhi NCR", "DoubleTree by Hilton Mumbai - Marine Lines", "DoubleTree by Hilton New Delhi - Mayur Vihar"],
+  "Indonesia": ["Conrad Bali", "Conrad Jakarta", "Hilton Bandung", "Hilton Bali Resort", "Hilton Garden Inn Bali Ngurah Rai Airport", "Hilton Jakarta", "Hilton Surabaya", "DoubleTree by Hilton Jakarta - Diponegoro"],
+  "Japan": ["Conrad Osaka", "Conrad Tokyo", "Hilton Fukuoka Sea Hawk", "Hilton Nagoya", "Hilton Narita", "Hilton Niseko Village", "Hilton Odawara Resort & Spa", "Hilton Osaka", "Hilton Tokyo", "Hilton Tokyo Bay", "Hilton Tokyo Narita Airport", "DoubleTree by Hilton Naha", "DoubleTree by Hilton Naha Shuri Castle"],
   "Laos": ["Hilton Vientiane"],
-  "Malaysia": ["Hilton Kuala Lumpur", "DoubleTree by Hilton Kuala Lumpur"],
+  "Macau": ["Conrad Macao Cotai Central"],
+  "Malaysia": ["Conrad Kuala Lumpur", "Hilton Kuala Lumpur", "Hilton Petaling Jaya", "DoubleTree by Hilton Kuala Lumpur", "DoubleTree by Hilton Putrajaya Lakeside"],
+  "Maldives": ["Conrad Maldives Rangali Island", "Hilton Maldives Amingiri Resort & Spa", "Waldorf Astoria Maldives Ithaafushi"],
   "Myanmar": ["Hilton Yangon"],
   "Nepal": ["Hilton Kathmandu"],
+  "New Zealand": ["Hilton Auckland", "DoubleTree by Hilton Queenstown"],
   "Papua New Guinea": ["Hilton Port Moresby"],
   "Philippines": ["Conrad Manila", "Hilton Manila"],
-  "Singapore": ["Conrad Centennial Singapore", "Hilton Singapore Orchard", "DoubleTree by Hilton Singapore"],
-  "Sri Lanka": ["Hilton Colombo"],
-  "Taiwan": ["Conrad Taipei", "Hilton Taipei"],
-  "Thailand": ["Conrad Bangkok", "Hilton Bangkok", "DoubleTree by Hilton Bangkok"],
-  "Vietnam": ["Hilton Hanoi", "Hilton Ho Chi Minh City"]
+  "Singapore": ["Conrad Centennial Singapore", "Hilton Garden Inn Singapore Serangoon", "Hilton Singapore Orchard", "DoubleTree by Hilton Singapore"],
+  "South Korea": ["Conrad Seoul", "Hilton Busan"],
+  "Sri Lanka": ["Hilton Colombo", "Hilton Colombo Residences"],
+  "Taiwan": ["Conrad Taipei", "Hilton Taipei Sinban"],
+  "Thailand": ["Conrad Bangkok", "Conrad Koh Samui", "Hilton Bangkok Grande Asoke", "Hilton Hua Hin Resort & Spa", "Hilton Pattaya", "Hilton Phuket Arcadia Resort & Spa", "Hilton Sukhumvit Bangkok", "DoubleTree by Hilton Bangkok Ploenchit", "DoubleTree by Hilton Sukhumvit Bangkok"],
+  "Vietnam": ["Conrad Da Nang", "Conrad Ho Chi Minh City", "Hilton Hanoi Opera", "Hilton Ho Chi Minh City"]
 };
 
 // Function to dynamically get Hilton booking parameters
@@ -165,7 +171,7 @@ export function VoucherForm() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Credit Card Field */}
+            
             <div className="space-y-2">
               <Label htmlFor="creditCard" className="text-sm font-semibold flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-primary" />
@@ -178,19 +184,23 @@ export function VoucherForm() {
               {creditCard.length > 0 && creditCard.length < 6 && <p className="text-xs text-warning">You've provided an incorrect entry. Please try again.</p>}
             </div>
 
-            {/* Voucher Code Field */}
+            
             <div className="space-y-2">
               <Label htmlFor="voucherCode" className="text-sm font-semibold">
                 Voucher Code
               </Label>
               <Input id="voucherCode" value={voucherCode} onChange={e => setVoucherCode(e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 10))} placeholder="Enter 10 character code" maxLength={10} className="font-mono tracking-wider" />
               <p className="text-xs text-muted-foreground">Enter the 10 character code printed on your voucher*</p>
-              <p className="text-xs text-muted-foreground">*Booking must be made with a valid voucher code for the complimentary 1-night stay. Booking may be cancelled, revoked or charged if found to be made through an invalid manner. Booking may be cancelled, revoked or charged if found to be made through an invalid manner.</p>
+              <div className="mt-2 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <p className="text-xs text-yellow-800 dark:text-yellow-200">
+                  *Booking must be made with a valid voucher code for the complimentary 1-night stay. Booking may be cancelled, revoked or charged if found to be made through an invalid manner.
+                </p>
+              </div>
               
               {voucherCode.length > 0 && voucherCode.length < 10 && <p className="text-xs text-warning">You've provided an incorrect entry. Please try again.</p>}
             </div>
 
-            {/* Voucher Expiry Date */}
+            
             <div className="space-y-2">
               <Label htmlFor="voucherExpiry" className="text-sm font-semibold flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-primary" />
@@ -202,7 +212,7 @@ export function VoucherForm() {
               </p>
             </div>
 
-            {/* Destination Field - Only show when card and voucher are valid */}
+            
             {canShowDestination && <div className="space-y-2">
                 <Label htmlFor="destination" className="text-sm font-semibold flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-primary" />
@@ -220,7 +230,6 @@ export function VoucherForm() {
                 </Select>
               </div>}
 
-            {/* Hotel Field - Only show when destination is selected */}
             {destination && <div className="space-y-2">
                 <Label htmlFor="hotel" className="text-sm font-semibold flex items-center gap-2">
                   <Building className="h-4 w-4 text-primary" />
@@ -238,7 +247,7 @@ export function VoucherForm() {
                 </Select>
               </div>}
 
-            {/* Submit Button */}
+            
             <Button type="submit" variant="luxury" className="w-full" disabled={!isFormValid || isLoading}>
               {isLoading ? <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -252,7 +261,7 @@ export function VoucherForm() {
         </CardContent>
       </Card>
 
-      {/* Results Section */}
+      
       {showResults && <Card className="bg-gradient-card shadow-luxury border-0">
           <CardHeader>
             <CardTitle className="text-xl font-bold text-primary flex items-center gap-2">
