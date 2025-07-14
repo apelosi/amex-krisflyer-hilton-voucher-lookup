@@ -148,7 +148,7 @@ export function VoucherForm() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString(undefined, {
       weekday: 'short',
       year: 'numeric',
       month: 'short',
@@ -310,7 +310,7 @@ export function VoucherForm() {
             </p>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
+            <div className="space-y-2">
               {results.map((result) => (
                 <div
                   key={result.date}
@@ -332,14 +332,13 @@ export function VoucherForm() {
                   </div>
                   <div className="text-right">
                     {result.available ? (
-                      <div>
-                        <span className="text-success font-semibold">
-                          {result.roomCount} room{result.roomCount !== 1 ? 's' : ''} available
-                        </span>
-                        <div className="text-xs text-muted-foreground">
-                          Confidential Price
-                        </div>
-                      </div>
+                      <Button
+                        variant="link"
+                        className="p-0 h-auto text-success font-semibold hover:underline"
+                        onClick={() => window.open('https://www.hilton.com/en/book/reservation/rooms/', '_blank')}
+                      >
+                        {result.roomCount} room{result.roomCount !== 1 ? 's' : ''} available
+                      </Button>
                     ) : (
                       <span className="text-muted-foreground text-sm">
                         No availability
@@ -353,8 +352,7 @@ export function VoucherForm() {
             {results.length > 0 && (
               <div className="mt-4 p-3 bg-accent/50 rounded-lg">
                 <p className="text-sm text-foreground">
-                  <strong>Summary:</strong> {results.filter(r => r.available).length} available dates out of {results.length} checked.
-                  Total available rooms: {results.reduce((sum, r) => sum + (r.roomCount || 0), 0)}
+                  <strong>Summary:</strong> {results.filter(r => r.available).length} available dates out of {results.length} checked with {results.reduce((sum, r) => sum + (r.roomCount || 0), 0)} total available rooms.
                 </p>
               </div>
             )}
