@@ -194,13 +194,13 @@ export function VoucherForm() {
               <Input
                 id="voucherCode"
                 value={voucherCode}
-                onChange={(e) => setVoucherCode(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                placeholder="Enter 10 digit code"
+                onChange={(e) => setVoucherCode(e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 10))}
+                placeholder="Enter 10 character code"
                 maxLength={10}
                 className="font-mono tracking-wider"
               />
               <p className="text-xs text-muted-foreground">
-                Enter the 10 digit code printed on your voucher*
+                Enter the 10 character code printed on your voucher*
               </p>
               {voucherCode.length > 0 && voucherCode.length < 10 && (
                 <p className="text-xs text-warning">You've provided an incorrect entry. Please try again.</p>
