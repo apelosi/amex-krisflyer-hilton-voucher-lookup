@@ -7,63 +7,97 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CalendarIcon, CreditCard, MapPin, Building, Search, CheckCircle, XCircle, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-// Mock destination and hotel data based on typical Hilton properties in APAC
+// Mock destination and hotel data based on actual Hilton AMEX KrisFlyer website
 const destinations = [
-  "Singapore",
-  "Bangkok, Thailand", 
-  "Tokyo, Japan",
+  "Australia",
+  "China",
   "Hong Kong",
-  "Kuala Lumpur, Malaysia",
-  "Sydney, Australia",
-  "Seoul, South Korea",
-  "Manila, Philippines",
-  "Jakarta, Indonesia",
-  "Mumbai, India"
+  "India", 
+  "Indonesia",
+  "Japan",
+  "Laos",
+  "Malaysia",
+  "Myanmar",
+  "Nepal",
+  "Papua New Guinea",
+  "Philippines",
+  "Singapore",
+  "Sri Lanka",
+  "Taiwan",
+  "Thailand",
+  "Vietnam"
 ];
 
 const hotelsByDestination: Record<string, string[]> = {
-  "Singapore": [
-    "Conrad Centennial Singapore",
-    "Hilton Singapore Orchard",
-    "DoubleTree by Hilton Singapore"
+  "Australia": [
+    "Conrad Sydney",
+    "Hilton Sydney",
+    "DoubleTree by Hilton Sydney"
   ],
-  "Bangkok, Thailand": [
-    "Conrad Bangkok",
-    "Hilton Bangkok",
-    "DoubleTree by Hilton Bangkok"
-  ],
-  "Tokyo, Japan": [
-    "Conrad Tokyo",
-    "Hilton Tokyo",
-    "Hilton Tokyo Bay"
+  "China": [
+    "Conrad Beijing",
+    "Hilton Shanghai",
+    "DoubleTree by Hilton Shanghai"
   ],
   "Hong Kong": [
     "Conrad Hong Kong",
     "Hilton Hong Kong"
   ],
-  "Kuala Lumpur, Malaysia": [
+  "India": [
+    "Conrad Mumbai",
+    "Hilton Mumbai",
+    "DoubleTree by Hilton New Delhi"
+  ],
+  "Indonesia": [
+    "Conrad Jakarta",
+    "Hilton Jakarta",
+    "DoubleTree by Hilton Jakarta"
+  ],
+  "Japan": [
+    "Conrad Tokyo",
+    "Hilton Tokyo",
+    "Hilton Tokyo Bay"
+  ],
+  "Laos": [
+    "Hilton Vientiane"
+  ],
+  "Malaysia": [
     "Hilton Kuala Lumpur",
     "DoubleTree by Hilton Kuala Lumpur"
   ],
-  "Sydney, Australia": [
-    "Conrad Sydney",
-    "Hilton Sydney"
+  "Myanmar": [
+    "Hilton Yangon"
   ],
-  "Seoul, South Korea": [
-    "Conrad Seoul",
-    "Hilton Seoul"
+  "Nepal": [
+    "Hilton Kathmandu"
   ],
-  "Manila, Philippines": [
+  "Papua New Guinea": [
+    "Hilton Port Moresby"
+  ],
+  "Philippines": [
     "Conrad Manila",
     "Hilton Manila"
   ],
-  "Jakarta, Indonesia": [
-    "Conrad Jakarta",
-    "Hilton Jakarta"
+  "Singapore": [
+    "Conrad Centennial Singapore",
+    "Hilton Singapore Orchard",
+    "DoubleTree by Hilton Singapore"
   ],
-  "Mumbai, India": [
-    "Conrad Mumbai",
-    "Hilton Mumbai"
+  "Sri Lanka": [
+    "Hilton Colombo"
+  ],
+  "Taiwan": [
+    "Conrad Taipei",
+    "Hilton Taipei"
+  ],
+  "Thailand": [
+    "Conrad Bangkok",
+    "Hilton Bangkok",
+    "DoubleTree by Hilton Bangkok"
+  ],
+  "Vietnam": [
+    "Hilton Hanoi",
+    "Hilton Ho Chi Minh City"
   ]
 };
 
