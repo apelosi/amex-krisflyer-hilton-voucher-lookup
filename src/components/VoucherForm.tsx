@@ -207,6 +207,12 @@ export function VoucherForm() {
               <p className="text-xs text-muted-foreground">
                 Enter the 10 character code printed on your voucher*
               </p>
+              <p className="text-xs text-muted-foreground">
+                *Booking must be made with a valid voucher code for the complimentary 1-night stay.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Booking may be cancelled, revoked or charged if found to be made through an invalid manner.
+              </p>
               {voucherCode.length > 0 && voucherCode.length < 10 && (
                 <p className="text-xs text-warning">You've provided an incorrect entry. Please try again.</p>
               )}
@@ -239,7 +245,7 @@ export function VoucherForm() {
                 </Label>
                 <Select value={destination} onValueChange={setDestination}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose your destination" />
+                    <SelectValue placeholder="Select Destination" />
                   </SelectTrigger>
                   <SelectContent>
                     {destinations.map((dest) => (
@@ -249,9 +255,6 @@ export function VoucherForm() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Select the Destination
-                </p>
               </div>
             )}
 
@@ -264,7 +267,7 @@ export function VoucherForm() {
                 </Label>
                 <Select value={hotel} onValueChange={setHotel}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Choose your hotel" />
+                    <SelectValue placeholder="Select Hotel" />
                   </SelectTrigger>
                   <SelectContent>
                     {availableHotels.map((hotelName) => (
@@ -274,9 +277,6 @@ export function VoucherForm() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
-                  Select the Hotel
-                </p>
               </div>
             )}
 
