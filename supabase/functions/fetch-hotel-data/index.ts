@@ -16,6 +16,9 @@ serve(async (req) => {
     
     const browserlessApiKey = Deno.env.get('BROWSERLESS_API_KEY');
     console.log('API key available:', !!browserlessApiKey);
+    console.log('API key first 10 chars:', browserlessApiKey?.substring(0, 10) || 'undefined');
+    console.log('API key last 4 chars:', browserlessApiKey?.substring(-4) || 'undefined');
+    console.log('Full API key value:', browserlessApiKey || 'undefined');
     
     if (!browserlessApiKey) {
       console.error('BROWSERLESS_API_KEY environment variable not found');
