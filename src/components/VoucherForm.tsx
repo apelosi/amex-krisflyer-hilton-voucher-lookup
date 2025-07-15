@@ -258,7 +258,7 @@ export function VoucherForm() {
                   Destination
                 </Label>
                 <Select value={destination} onValueChange={setDestination}>
-                  <SelectTrigger>
+                  <SelectTrigger id="destination">
                     <SelectValue placeholder="Select Destination" />
                   </SelectTrigger>
                   <SelectContent>
@@ -275,7 +275,7 @@ export function VoucherForm() {
                   Hotel
                 </Label>
                 <Select value={hotel} onValueChange={setHotel}>
-                  <SelectTrigger>
+                  <SelectTrigger id="hotel">
                     <SelectValue placeholder="Select Hotel" />
                   </SelectTrigger>
                   <SelectContent>
