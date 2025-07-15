@@ -35,11 +35,7 @@ serve(async (req) => {
         'Cache-Control': 'no-cache',
       },
       body: JSON.stringify({
-        url: 'https://apac.hilton.com/amexkrisflyer',
-        waitFor: 5000,
-        options: {
-          waitUntil: 'networkidle2'
-        }
+        url: 'https://apac.hilton.com/amexkrisflyer'
       }),
     });
 
