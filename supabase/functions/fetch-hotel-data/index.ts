@@ -19,125 +19,49 @@ serve(async (req) => {
       throw new Error('BROWSERLESS_API_KEY is not set');
     }
 
-    // Use browser automation to extract form data
-    const script = `
-      const page = await browser.newPage();
-      
-      try {
-        // Navigate to AMEX KrisFlyer portal
-        await page.goto('https://apac.hilton.com/amexkrisflyer', { waitUntil: 'networkidle2' });
-        
-        // Wait for form elements to load
-        await page.waitForSelector('select#destination', { timeout: 10000 });
-        await page.waitForSelector('select#hotel', { timeout: 10000 });
-        
-        // Extract destination options
-        const destinations = await page.evaluate(() => {
-          const select = document.querySelector('select#destination');
-          if (!select) return [];
-          
-          const options = Array.from(select.querySelectorAll('option'))
-            .map(option => option.textContent?.trim())
-            .filter(text => text && text !== 'Select Destination');
-          
-          return options;
-        });
-        
-        // Extract hotel options
-        const hotels = await page.evaluate(() => {
-          const select = document.querySelector('select#hotel');
-          if (!select) return [];
-          
-          const options = Array.from(select.querySelectorAll('option'))
-            .map(option => option.textContent?.trim())
-            .filter(text => text && text !== 'Select Hotel');
-          
-          return options;
-        });
-        
-        // Try to map hotels to destinations by testing each destination
-        const hotelsByDestination = {};
-        
-        for (const destination of destinations) {
-          try {
-            // Select the destination
-            await page.select('select#destination', destination);
-            
-            // Wait a bit for the hotel dropdown to update
-            await page.waitForTimeout(1000);
-            
-            // Get updated hotel options for this destination
-            const destinationHotels = await page.evaluate(() => {
-              const select = document.querySelector('select#hotel');
-              if (!select) return [];
-              
-              const options = Array.from(select.querySelectorAll('option'))
-                .map(option => option.textContent?.trim())
-                .filter(text => text && text !== 'Select Hotel');
-              
-              return options;
-            });
-            
-            hotelsByDestination[destination] = destinationHotels;
-          } catch (error) {
-            console.log('Error processing destination:', destination, error);
-            // Fallback to all hotels for this destination
-            hotelsByDestination[destination] = hotels;
-          }
-        }
-        
-        return {
-          success: true,
-          destinations,
-          hotels,
-          hotelsByDestination,
-          pageUrl: page.url()
-        };
-        
-      } catch (error) {
-        return {
-          success: false,
-          error: error.message,
-          pageUrl: page.url()
-        };
-      } finally {
-        await page.close();
-      }
-    `;
-
-    console.log('Calling Browserless API...');
-    
-    const browserlessResponse = await fetch(`https://production-sfo.browserless.io/function?token=${browserlessApiKey}`, {
+    // Simplified approach - just get the HTML content first
+    const htmlResponse = await fetch('https://chrome.browserless.io/content', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        code: script
-      })
+        url: 'https://apac.hilton.com/amexkrisflyer',
+        token: browserlessApiKey,
+        waitFor: 3000,
+      }),
     });
 
-    if (!browserlessResponse.ok) {
-      throw new Error(`Browserless API failed: ${browserlessResponse.status}`);
+    console.log('HTML response status:', htmlResponse.status);
+
+    if (!htmlResponse.ok) {
+      throw new Error(`Failed to fetch HTML: ${htmlResponse.status}`);
     }
 
-    const result = await browserlessResponse.json();
-    console.log('Browserless result:', result);
+    const htmlContent = await htmlResponse.text();
+    console.log('HTML content length:', htmlContent.length);
 
-    if (!result.success) {
-      throw new Error(`Browser automation failed: ${result.error}`);
-    }
+    // Parse HTML to extract select options
+    const destinations = extractSelectOptions(htmlContent, 'destination');
+    const hotels = extractSelectOptions(htmlContent, 'hotel');
 
-    const { destinations, hotels, hotelsByDestination } = result;
+    console.log('Extracted destinations:', destinations.length);
+    console.log('Extracted hotels:', hotels.length);
 
-    console.log(`Successfully extracted ${destinations.length} destinations and ${hotels.length} hotels`);
+    // For now, assign all hotels to all destinations
+    const hotelsByDestination: Record<string, string[]> = {};
+    destinations.forEach(dest => {
+      hotelsByDestination[dest] = hotels;
+    });
 
-    return new Response(JSON.stringify({
+    const result = {
       success: true,
       destinations,
       hotels,
       hotelsByDestination
-    }), {
+    };
+
+    return new Response(JSON.stringify(result), {
       headers: { 
         ...corsHeaders,
         'Content-Type': 'application/json'
@@ -161,3 +85,41 @@ serve(async (req) => {
     });
   }
 });
+
+function extractSelectOptions(html: string, selectId: string): string[] {
+  const options: string[] = [];
+  
+  try {
+    // Find the select element by id
+    const selectRegex = new RegExp(`<select[^>]*id=["']${selectId}["'][^>]*>([\\s\\S]*?)</select>`, 'i');
+    const selectMatch = html.match(selectRegex);
+    
+    if (!selectMatch) {
+      console.log(`No select element found for ${selectId}`);
+      return options;
+    }
+    
+    const selectContent = selectMatch[1];
+    
+    // Extract option elements
+    const optionRegex = /<option[^>]*value=["']([^"']*)["'][^>]*>([^<]*)<\/option>/gi;
+    let match;
+    
+    while ((match = optionRegex.exec(selectContent)) !== null) {
+      const value = match[1].trim();
+      const text = match[2].trim();
+      
+      // Skip empty options and the default "Select..." options
+      if (value && text && !text.startsWith('Select ')) {
+        options.push(text);
+      }
+    }
+    
+    console.log(`Found ${options.length} options for ${selectId}`);
+    return options;
+    
+  } catch (error) {
+    console.error(`Error extracting options for ${selectId}:`, error);
+    return options;
+  }
+}
