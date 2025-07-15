@@ -33,7 +33,7 @@ serve(async (req) => {
     console.log('API key found, testing basic connectivity...');
 
     // Test 1: Basic API health check
-    const healthUrl = `https://chrome.browserless.io/json/version?token=${browserlessApiKey}`;
+    const healthUrl = `https://production-sfo.browserless.io/json/version?token=${browserlessApiKey}`;
     console.log('Testing health endpoint:', healthUrl.replace(browserlessApiKey, '[REDACTED]'));
     
     const healthResponse = await fetch(healthUrl);
@@ -59,7 +59,7 @@ serve(async (req) => {
     console.log('Health check successful:', healthData);
 
     // Test 2: Simple page content retrieval
-    const contentUrl = `https://chrome.browserless.io/content?token=${browserlessApiKey}`;
+    const contentUrl = `https://production-sfo.browserless.io/content?token=${browserlessApiKey}`;
     console.log('Testing content endpoint...');
     
     const contentResponse = await fetch(contentUrl, {
@@ -96,7 +96,7 @@ serve(async (req) => {
     console.log('Content test successful, page length:', contentData.length);
 
     // Test 3: Simple scraping test
-    const scrapeUrl = `https://chrome.browserless.io/scrape?token=${browserlessApiKey}`;
+    const scrapeUrl = `https://production-sfo.browserless.io/scrape?token=${browserlessApiKey}`;
     console.log('Testing scrape endpoint...');
     
     const scrapeResponse = await fetch(scrapeUrl, {
