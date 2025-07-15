@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, CreditCard, MapPin, Building, Search, CheckCircle, XCircle, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 // Mock destination and hotel data based on actual Hilton AMEX KrisFlyer website
 const destinations = ["Australia", "Brunei", "Cambodia", "China", "Hong Kong", "India", "Indonesia", "Japan", "Laos", "Macau", "Malaysia", "Maldives", "Myanmar", "Nepal", "New Zealand", "Papua New Guinea", "Philippines", "Singapore", "South Korea", "Sri Lanka", "Taiwan", "Thailand", "Vietnam"];
@@ -35,28 +36,11 @@ const hotelsByDestination: Record<string, string[]> = {
   "Vietnam": ["Conrad Da Nang", "Conrad Ho Chi Minh City", "Hilton Hanoi Opera", "Hilton Ho Chi Minh City"]
 };
 
-// Function to dynamically get Hilton booking parameters
-// Note: This requires browser automation to submit forms at apac.hilton.com/amexkrisflyer
-// and capture the resulting URL parameters - currently not available
-const getHiltonBookingParams = async (creditCard: string, voucherCode: string, destination: string, hotel: string, arrivalDate: string) => {
-  // TODO: Implement form submission to apac.hilton.com/amexkrisflyer
-  // This would require browser automation tools like Puppeteer/Playwright to:
-  // 1. Navigate to https://apac.hilton.com/amexkrisflyer
-  // 2. Fill in the form with provided values
-  // 3. Submit the form
-  // 4. Capture the redirect URL to extract ctyhocn and groupCode parameters
-
-  console.warn('Dynamic parameter extraction not implemented - browser automation required');
-  return {
-    ctyhocn: 'PLACEHOLDER',
-    // Should be extracted from form submission redirect
-    groupCode: 'PLACEHOLDER' // Should be extracted from form submission redirect
-  };
-};
 interface AvailabilityResult {
   date: string;
   available: boolean;
   roomCount?: number;
+  bookingUrl?: string;
 }
 export function VoucherForm() {
   const [creditCard, setCreditCard] = useState("");
@@ -73,6 +57,28 @@ export function VoucherForm() {
   const isFormValid = creditCard.length === 6 && voucherCode.length === 10 && destination && hotel && voucherExpiry;
   const canShowDestination = creditCard.length === 6 && voucherCode.length === 10 && voucherExpiry;
   const availableHotels = destination ? hotelsByDestination[destination] || [] : [];
+
+  const getBookingUrl = (result: AvailabilityResult) => {
+    // Use the real booking URL from the browser automation result if available
+    return result.bookingUrl || generateBookingUrl(result.date);
+  };
+
+  const generateBookingUrl = (date: string) => {
+    // Fallback URL generation if no booking URL is provided from browser automation
+    const arrivalDate = date;
+    const departureDate = new Date(date);
+    departureDate.setDate(departureDate.getDate() + 1);
+    const departureDateStr = departureDate.toISOString().split('T')[0];
+    const params = new URLSearchParams({
+      ctyhocn: 'PLACEHOLDER',
+      arrivalDate: arrivalDate,
+      departureDate: departureDateStr,
+      groupCode: 'PLACEHOLDER',
+      room1NumAdults: '1',
+      cid: 'OH,MB,APACAMEXKrisFlyerComplimentaryNight,MULTIBR,OfferCTA,Offer,Book'
+    });
+    return `https://www.hilton.com/en/book/reservation/rooms/?${params.toString()}`;
+  };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid) {
@@ -85,45 +91,37 @@ export function VoucherForm() {
     }
     setIsLoading(true);
     try {
-      // Simulate API call to check availability across date range
-      await new Promise(resolve => setTimeout(resolve, 3000));
-
-      // Mock results - in real implementation, this would make actual API calls
-      const today = new Date();
-      const expiry = new Date(voucherExpiry);
-      const mockResults: AvailabilityResult[] = [];
-
-      // Create date range from today to expiry date (inclusive)
-      const currentDate = new Date(today);
-
-      // Continue until we've processed the expiry date
-      while (currentDate <= expiry) {
-        const isAvailable = Math.random() > 0.6; // Random availability for demo
-        const roomCount = isAvailable ? Math.floor(Math.random() * 5) + 1 : 0;
-        mockResults.push({
-          date: currentDate.toISOString().split('T')[0],
-          available: isAvailable,
-          roomCount: isAvailable ? roomCount : undefined
-        });
-
-        // If we've just processed the expiry date, break
-        if (currentDate.toDateString() === expiry.toDateString()) {
-          break;
+      // Call our Supabase Edge Function to check real availability
+      const { data, error } = await supabase.functions.invoke('check-hotel-availability', {
+        body: {
+          creditCard,
+          voucherCode,
+          destination,
+          hotel,
+          arrivalDate: new Date().toISOString().split('T')[0], // Start from today
+          voucherExpiry
         }
+      });
 
-        // Move to next day
-        currentDate.setDate(currentDate.getDate() + 1);
+      if (error) {
+        throw error;
       }
-      setResults(mockResults);
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to check availability');
+      }
+
+      setResults(data.availability || []);
       setShowResults(true);
       toast({
         title: "Search Complete",
-        description: `Found availability results for ${mockResults.length} dates.`
+        description: `Found availability results for ${data.availability?.length || 0} dates.`
       });
     } catch (error) {
+      console.error('Availability check error:', error);
       toast({
         title: "Search Failed",
-        description: "Unable to check availability. Please try again.",
+        description: error.message || "Unable to check availability. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -137,27 +135,6 @@ export function VoucherForm() {
       month: 'short',
       day: 'numeric'
     });
-  };
-  const generateBookingUrl = (date: string) => {
-    // Note: Dynamic parameter extraction would require browser automation
-    // to submit forms at apac.hilton.com/amexkrisflyer and capture redirect URLs
-    // Currently using placeholder values - would need Puppeteer/Playwright to implement properly
-
-    const arrivalDate = date;
-    const departureDate = new Date(date);
-    departureDate.setDate(departureDate.getDate() + 1);
-    const departureDateStr = departureDate.toISOString().split('T')[0];
-    const params = new URLSearchParams({
-      ctyhocn: 'PLACEHOLDER',
-      // Should be dynamically extracted from form submission
-      arrivalDate: arrivalDate,
-      departureDate: departureDateStr,
-      groupCode: 'PLACEHOLDER',
-      // Should be dynamically extracted from form submission  
-      room1NumAdults: '1',
-      cid: 'OH,MB,APACAMEXKrisFlyerComplimentaryNight,MULTIBR,OfferCTA,Offer,Book'
-    });
-    return `https://www.hilton.com/en/book/reservation/rooms/?${params.toString()}`;
   };
   return <div className="space-y-8">
       <Card className="bg-gradient-card shadow-luxury border-0">
@@ -287,7 +264,7 @@ export function VoucherForm() {
                     </span>
                   </div>
                   <div className="text-right">
-                    <a href={generateBookingUrl(result.date)} target="_blank" rel="noopener noreferrer" className={`${result.available ? "text-success font-semibold underline hover:no-underline" : "text-muted-foreground text-sm underline hover:no-underline"}`}>
+                    <a href={getBookingUrl(result)} target="_blank" rel="noopener noreferrer" className={`${result.available ? "text-success font-semibold underline hover:no-underline" : "text-muted-foreground text-sm underline hover:no-underline"}`}>
                       {result.available ? `${result.roomCount} room${result.roomCount !== 1 ? 's' : ''} available` : "View rooms"}
                     </a>
                   </div>
