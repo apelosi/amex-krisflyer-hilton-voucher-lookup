@@ -14,7 +14,7 @@ const Index = () => {
             <h1 className="text-3xl md:text-5xl font-bold text-white mb-4">
               AMEX KrisFlyer Hilton Voucher Lookup
             </h1>
-            <p className="text-lg md:text-xl text-white/90 mb-2">Check availability at a hotel across all dates</p>
+            <p className="text-lg md:text-xl text-white/90 mb-2">Check hotel availability across all dates at once</p>
             <p className="text-sm text-white/80">
               by <a href="https://vibez.ventures" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline transition-all duration-200">Vibez Ventures</a> - Not affiliated with Hilton, AMEX, or KrisFlyer
             </p>
