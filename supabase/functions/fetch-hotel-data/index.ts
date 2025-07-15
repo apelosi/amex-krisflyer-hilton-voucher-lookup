@@ -1,11 +1,11 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -19,61 +19,125 @@ Deno.serve(async (req) => {
       throw new Error('BROWSERLESS_API_KEY is not set');
     }
 
-    const browserlessResponse = await fetch('https://chrome.browserless.io/content', {
+    // Use browser automation to extract form data
+    const script = `
+      const page = await browser.newPage();
+      
+      try {
+        // Navigate to AMEX KrisFlyer portal
+        await page.goto('https://apac.hilton.com/amexkrisflyer', { waitUntil: 'networkidle2' });
+        
+        // Wait for form elements to load
+        await page.waitForSelector('select#destination', { timeout: 10000 });
+        await page.waitForSelector('select#hotel', { timeout: 10000 });
+        
+        // Extract destination options
+        const destinations = await page.evaluate(() => {
+          const select = document.querySelector('select#destination');
+          if (!select) return [];
+          
+          const options = Array.from(select.querySelectorAll('option'))
+            .map(option => option.textContent?.trim())
+            .filter(text => text && text !== 'Select Destination');
+          
+          return options;
+        });
+        
+        // Extract hotel options
+        const hotels = await page.evaluate(() => {
+          const select = document.querySelector('select#hotel');
+          if (!select) return [];
+          
+          const options = Array.from(select.querySelectorAll('option'))
+            .map(option => option.textContent?.trim())
+            .filter(text => text && text !== 'Select Hotel');
+          
+          return options;
+        });
+        
+        // Try to map hotels to destinations by testing each destination
+        const hotelsByDestination = {};
+        
+        for (const destination of destinations) {
+          try {
+            // Select the destination
+            await page.select('select#destination', destination);
+            
+            // Wait a bit for the hotel dropdown to update
+            await page.waitForTimeout(1000);
+            
+            // Get updated hotel options for this destination
+            const destinationHotels = await page.evaluate(() => {
+              const select = document.querySelector('select#hotel');
+              if (!select) return [];
+              
+              const options = Array.from(select.querySelectorAll('option'))
+                .map(option => option.textContent?.trim())
+                .filter(text => text && text !== 'Select Hotel');
+              
+              return options;
+            });
+            
+            hotelsByDestination[destination] = destinationHotels;
+          } catch (error) {
+            console.log('Error processing destination:', destination, error);
+            // Fallback to all hotels for this destination
+            hotelsByDestination[destination] = hotels;
+          }
+        }
+        
+        return {
+          success: true,
+          destinations,
+          hotels,
+          hotelsByDestination,
+          pageUrl: page.url()
+        };
+        
+      } catch (error) {
+        return {
+          success: false,
+          error: error.message,
+          pageUrl: page.url()
+        };
+      } finally {
+        await page.close();
+      }
+    `;
+
+    console.log('Calling Browserless API...');
+    
+    const browserlessResponse = await fetch(`https://production-sfo.browserless.io/function?token=${browserlessApiKey}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${browserlessApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        url: 'https://apac.hilton.com/amexkrisflyer',
-        waitFor: 2000,
-      }),
+        code: script
+      })
     });
 
     if (!browserlessResponse.ok) {
       throw new Error(`Browserless API failed: ${browserlessResponse.status}`);
     }
 
-    const htmlContent = await browserlessResponse.text();
-    console.log('Successfully fetched HTML content');
+    const result = await browserlessResponse.json();
+    console.log('Browserless result:', result);
 
-    // Extract destinations and hotels using regex patterns
-    const destinationMatch = htmlContent.match(/Select Destination([^<]+)Select Destination/);
-    const hotelMatch = htmlContent.match(/Select Hotel([^<]+)Select Hotel/);
-
-    if (!destinationMatch || !hotelMatch) {
-      throw new Error('Could not find destination or hotel data in HTML');
+    if (!result.success) {
+      throw new Error(`Browser automation failed: ${result.error}`);
     }
 
-    // Parse destinations
-    const destinationText = destinationMatch[1];
-    const destinations = destinationText.split(/(?=[A-Z][a-z])/).filter(d => d.trim().length > 0);
-    console.log('Extracted destinations:', destinations);
+    const { destinations, hotels, hotelsByDestination } = result;
 
-    // Parse hotels
-    const hotelText = hotelMatch[1];
-    const hotels = hotelText.split(/(?=[A-Z][a-z])/).filter(h => h.trim().length > 0);
-    console.log('Extracted hotels count:', hotels.length);
+    console.log(`Successfully extracted ${destinations.length} destinations and ${hotels.length} hotels`);
 
-    // For now, we'll return all hotels for all destinations
-    // In a real implementation, we'd need to map hotels to specific destinations
-    const hotelsByDestination: Record<string, string[]> = {};
-    
-    destinations.forEach(destination => {
-      hotelsByDestination[destination] = hotels;
-    });
-
-    const result = {
+    return new Response(JSON.stringify({
+      success: true,
       destinations,
       hotels,
-      hotelsByDestination,
-      success: true
-    };
-
-    console.log('Successfully processed hotel data');
-
-    return new Response(JSON.stringify(result), {
+      hotelsByDestination
+    }), {
       headers: { 
         ...corsHeaders,
         'Content-Type': 'application/json'

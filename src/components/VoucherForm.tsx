@@ -58,11 +58,11 @@ export function VoucherForm() {
             description: "Failed to load hotel data. Using fallback data.",
             variant: "destructive",
           });
-          // Use fallback data
+          // Use empty fallback data to force user to wait for real data
           setHotelData({
-            destinations: ["Australia", "China", "Hong Kong", "India", "Indonesia", "Japan", "Laos", "Malaysia", "Myanmar", "Nepal", "Papua New Guinea", "Philippines", "Singapore", "Sri Lanka", "Taiwan", "Thailand", "Vietnam"],
-            hotels: ["Hilton Singapore Orchard"],
-            hotelsByDestination: { "Singapore": ["Hilton Singapore Orchard"] },
+            destinations: [],
+            hotels: [],
+            hotelsByDestination: {},
             success: false
           });
         } else {
@@ -76,11 +76,11 @@ export function VoucherForm() {
           description: "Failed to load hotel data. Using fallback data.",
           variant: "destructive",
         });
-        // Use fallback data
+        // Use empty fallback data to force user to wait for real data
         setHotelData({
-          destinations: ["Australia", "China", "Hong Kong", "India", "Indonesia", "Japan", "Laos", "Malaysia", "Myanmar", "Nepal", "Papua New Guinea", "Philippines", "Singapore", "Sri Lanka", "Taiwan", "Thailand", "Vietnam"],
-          hotels: ["Hilton Singapore Orchard"],
-          hotelsByDestination: { "Singapore": ["Hilton Singapore Orchard"] },
+          destinations: [],
+          hotels: [],
+          hotelsByDestination: {},
           success: false
         });
       } finally {
