@@ -36,47 +36,114 @@ serve(async (req) => {
     const requestData: AvailabilityRequest = await req.json();
     console.log('Checking availability for:', requestData);
 
-    // Mapping of destinations to ctyhocn codes for AMEX KrisFlyer vouchers
-    const destinationCodes: Record<string, string> = {
-      "Australia": "SYDAU",
-      "Brunei": "BWNCN",
-      "Cambodia": "REPKH",
-      "China": "PEKCN",
-      "Hong Kong": "HKGHK",
-      "India": "DELIN",
-      "Indonesia": "JKTID",
-      "Japan": "TYOJP",
-      "Laos": "VTELK",
-      "Macau": "MFMMO",
-      "Malaysia": "KULMY",
-      "Maldives": "MALEO",
-      "Myanmar": "RGRMM",
-      "Nepal": "KTMNP",
-      "New Zealand": "AKLNZ",
-      "Papua New Guinea": "MREPG",
-      "Philippines": "MNLPH",
-      "Singapore": "SINSG",
-      "South Korea": "SELKR",
-      "Sri Lanka": "CMBLK",
-      "Taiwan": "TPETW",
-      "Thailand": "BKKTH",
-      "Vietnam": "SGMVN"
-    };
-
-    // Get the destination code
-    const cityCode = destinationCodes[requestData.destination] || requestData.destination.slice(0, 5).toUpperCase();
+    // First, extract the correct ctyhocn and groupCode by navigating through the AMEX KrisFlyer portal
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
-    // Construct the AMEX KrisFlyer booking URL with proper parameters
+    const extractParametersScript = `
+      const page = await browser.newPage();
+      
+      try {
+        // Navigate to AMEX KrisFlyer portal
+        await page.goto('https://apac.hilton.com/amexkrisflyer', { waitUntil: 'networkidle2' });
+        
+        // Fill in the form fields
+        await page.waitForSelector('input[name="creditCardNumber"], #creditCardNumber', { timeout: 10000 });
+        await page.type('input[name="creditCardNumber"], #creditCardNumber', '${requestData.creditCard}');
+        
+        await page.waitForSelector('input[name="voucherCode"], #voucherCode', { timeout: 5000 });
+        await page.type('input[name="voucherCode"], #voucherCode', '${requestData.voucherCode}');
+        
+        await page.waitForSelector('input[name="voucherExpiry"], #voucherExpiry', { timeout: 5000 });
+        await page.evaluate((expiry) => {
+          const expiryInput = document.querySelector('input[name="voucherExpiry"], #voucherExpiry');
+          if (expiryInput) expiryInput.value = expiry;
+        }, '${requestData.voucherExpiry}');
+        
+        await page.waitForSelector('select[name="destination"], #destination', { timeout: 5000 });
+        await page.select('select[name="destination"], #destination', '${requestData.destination}');
+        
+        await page.waitForSelector('select[name="hotel"], #hotel', { timeout: 5000 });
+        await page.select('select[name="hotel"], #hotel', '${requestData.hotel}');
+        
+        // Set arrival date to today
+        await page.waitForSelector('input[name="arrivalDate"], #arrivalDate', { timeout: 5000 });
+        await page.evaluate((date) => {
+          const dateInput = document.querySelector('input[name="arrivalDate"], #arrivalDate');
+          if (dateInput) dateInput.value = date;
+        }, '${today}');
+        
+        // Enable and click Go button
+        const checkbox = await page.$('input[type="checkbox"]');
+        if (checkbox) {
+          await checkbox.click();
+        }
+        
+        await page.waitForTimeout(1000);
+        
+        const goButton = await page.$('button:contains("Go"), input[type="submit"], .go-button');
+        if (goButton) {
+          await goButton.click();
+          await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 });
+        }
+        
+        // Extract parameters from the resulting URL
+        const currentUrl = page.url();
+        const urlParams = new URLSearchParams(currentUrl.split('?')[1] || '');
+        
+        return {
+          success: true,
+          ctyhocn: urlParams.get('ctyhocn') || '',
+          groupCode: urlParams.get('groupCode') || urlParams.get('couponCode') || '',
+          extractedUrl: currentUrl
+        };
+        
+      } catch (error) {
+        return {
+          success: false,
+          error: error.message,
+          currentUrl: page.url()
+        };
+      } finally {
+        await page.close();
+      }
+    `;
+
+    // Extract the parameters first
+    const paramExtractionResponse = await fetch(`https://production-sfo.browserless.io/function?token=${browserlessApiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        code: extractParametersScript
+      })
+    });
+
+    if (!paramExtractionResponse.ok) {
+      throw new Error(`Parameter extraction failed: ${paramExtractionResponse.status}`);
+    }
+
+    const paramResult = await paramExtractionResponse.json();
+    console.log('Parameter extraction result:', paramResult);
+
+    if (!paramResult.success || !paramResult.ctyhocn) {
+      throw new Error(`Failed to extract booking parameters: ${paramResult.error || 'Missing ctyhocn'}`);
+    }
+
+    const { ctyhocn, groupCode } = paramResult;
+
+    // Now use the extracted parameters to build the booking URL for the requested arrival date
     const arrivalDate = requestData.arrivalDate;
     const departureDate = new Date(arrivalDate);
     departureDate.setDate(departureDate.getDate() + 1);
     const departureDateStr = departureDate.toISOString().split('T')[0];
     
     const bookingParams = new URLSearchParams({
-      ctyhocn: cityCode,
+      ctyhocn: ctyhocn,
       arrivalDate: arrivalDate,
       departureDate: departureDateStr,
-      groupCode: 'AMEXKF',
+      groupCode: groupCode,
       room1NumAdults: '1',
       cid: 'OH,MB,APACAMEXKrisFlyerComplimentaryNight,MULTIBR,OfferCTA,Offer,Book'
     });
@@ -88,7 +155,7 @@ serve(async (req) => {
       const page = await browser.newPage();
       
       try {
-        // Navigate directly to the AMEX KrisFlyer booking URL
+        // Navigate directly to the booking URL with extracted parameters
         await page.goto('${bookingUrl}', { waitUntil: 'networkidle2' });
         
         // Wait for the page to load and look for hotel results
@@ -200,18 +267,18 @@ serve(async (req) => {
     );
 
     if (targetHotel) {
-      // Generate availability for next 7 days starting from arrival date
+      // Generate availability until voucher expiry date
       const startDate = new Date(requestData.arrivalDate);
-      for (let i = 0; i < 7; i++) {
-        const currentDate = new Date(startDate);
-        currentDate.setDate(startDate.getDate() + i);
-        
-        // Generate proper booking URL for this date
+      const expiryDate = new Date(requestData.voucherExpiry);
+      const currentDate = new Date(startDate);
+      
+      while (currentDate <= expiryDate) {
+        // Generate proper booking URL for this date using extracted parameters
         const dateParams = new URLSearchParams({
-          ctyhocn: cityCode,
+          ctyhocn: ctyhocn,
           arrivalDate: currentDate.toISOString().split('T')[0],
           departureDate: new Date(currentDate.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          groupCode: 'AMEXKF',
+          groupCode: groupCode,
           room1NumAdults: '1',
           cid: 'OH,MB,APACAMEXKrisFlyerComplimentaryNight,MULTIBR,OfferCTA,Offer,Book'
         });
@@ -220,10 +287,13 @@ serve(async (req) => {
         
         availability.push({
           date: currentDate.toISOString().split('T')[0],
-          available: targetHotel.available && i < 3, // Simulate some availability
-          roomCount: targetHotel.available ? Math.max(1, targetHotel.roomCount || Math.floor(Math.random() * 5) + 1) : 0,
+          available: targetHotel.available,
+          roomCount: targetHotel.available ? Math.max(1, targetHotel.roomCount || 1) : 0,
           bookingUrl: targetHotel.available ? dateBookingUrl : undefined
         });
+        
+        // Move to next day
+        currentDate.setDate(currentDate.getDate() + 1);
       }
     }
 
