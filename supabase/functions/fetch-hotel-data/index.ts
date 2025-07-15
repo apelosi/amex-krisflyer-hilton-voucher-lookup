@@ -28,7 +28,7 @@ serve(async (req) => {
     console.log('Making request to Browserless API...');
     
     // Use the correct Browserless API endpoint and authentication
-    const response = await fetch(`https://chrome.browserless.io/content?token=${browserlessApiKey}`, {
+    const response = await fetch(`https://production-sfo.browserless.io/content?token=${browserlessApiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
