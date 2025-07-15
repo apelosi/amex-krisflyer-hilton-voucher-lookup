@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,37 +8,12 @@ import { CalendarIcon, CreditCard, MapPin, Building, Search, CheckCircle, XCircl
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-// Mock destination and hotel data based on actual Hilton AMEX KrisFlyer website
-const destinations = ["Australia", "Brunei", "Cambodia", "China", "Hong Kong", "India", "Indonesia", "Japan", "Laos", "Macau", "Malaysia", "Maldives", "Myanmar", "Nepal", "New Zealand", "Papua New Guinea", "Philippines", "Singapore", "South Korea", "Sri Lanka", "Taiwan", "Thailand", "Vietnam"];
-
-const hotelsByDestination: Record<string, string[]> = {
-  "Australia": ["Conrad Brisbane", "Conrad Sydney", "Hilton Adelaide", "Hilton Brisbane", "Hilton Cairns", "Hilton Melbourne South Wharf", "Hilton Perth", "Hilton Sydney", "DoubleTree by Hilton Adelaide", "DoubleTree by Hilton Brisbane", "DoubleTree by Hilton Sydney"],
-  "Brunei": ["The Empire Brunei"],
-  "Cambodia": ["Hilton Siem Reap"],
-  "China": ["Conrad Beijing", "Conrad Dalian", "Conrad Guangzhou", "Conrad Macao Cotai Central", "Conrad Sanya Haitang Bay", "Conrad Shanghai", "Conrad Tianjin", "Hilton Beijing", "Hilton Beijing Capital Airport", "Hilton Changzhou", "Hilton Chengdu", "Hilton Chongqing", "Hilton Dalian", "Hilton Guangzhou Baiyun", "Hilton Guangzhou Tianhe", "Hilton Haikou", "Hilton Hangzhou Qiandao Lake Resort", "Hilton Harbin", "Hilton Hefei", "Hilton Jinan South", "Hilton Nanjing", "Hilton Nanjing Riverside", "Hilton Ningbo", "Hilton Qingdao", "Hilton Shanghai Hongqiao", "Hilton Shenyang", "Hilton Shenzhen Shekou Nanhai", "Hilton Suzhou", "Hilton Tianjin Eco-City", "Hilton Urumqi", "Hilton Wuhan Optics Valley", "Hilton Xi'an", "Hilton Xiamen", "Hilton Yantai Golden Coast", "DoubleTree by Hilton Beijing", "DoubleTree by Hilton Guangzhou", "DoubleTree by Hilton Shanghai - Pudong", "DoubleTree by Hilton Shenzhen Longgang"],
-  "Hong Kong": ["Conrad Hong Kong", "Hilton Garden Inn Hong Kong Mongkok"],
-  "India": ["Conrad Bengaluru", "Conrad Mumbai", "Conrad Pune", "Hilton Chennai", "Hilton Goa Resort", "Hilton Mumbai International Airport", "DoubleTree by Hilton Agra", "DoubleTree by Hilton Gurgaon-New Delhi NCR", "DoubleTree by Hilton Mumbai - Marine Lines", "DoubleTree by Hilton New Delhi - Mayur Vihar"],
-  "Indonesia": ["Conrad Bali", "Conrad Jakarta", "Hilton Bandung", "Hilton Bali Resort", "Hilton Garden Inn Bali Ngurah Rai Airport", "Hilton Jakarta", "Hilton Surabaya", "DoubleTree by Hilton Jakarta - Diponegoro"],
-  "Japan": ["Conrad Osaka", "Conrad Tokyo", "Hilton Fukuoka Sea Hawk", "Hilton Nagoya", "Hilton Narita", "Hilton Niseko Village", "Hilton Odawara Resort & Spa", "Hilton Osaka", "Hilton Tokyo", "Hilton Tokyo Bay", "Hilton Tokyo Narita Airport", "DoubleTree by Hilton Naha", "DoubleTree by Hilton Naha Shuri Castle"],
-  "Laos": ["Hilton Vientiane"],
-  "Macau": ["Conrad Macao Cotai Central"],
-  "Malaysia": ["Conrad Kuala Lumpur", "Hilton Kuala Lumpur", "Hilton Petaling Jaya", "DoubleTree by Hilton Kuala Lumpur", "DoubleTree by Hilton Putrajaya Lakeside"],
-  "Maldives": ["Conrad Maldives Rangali Island", "Hilton Maldives Amingiri Resort & Spa", "Waldorf Astoria Maldives Ithaafushi"],
-  "Myanmar": ["Hilton Yangon"],
-  "Nepal": ["Hilton Kathmandu"],
-  "New Zealand": ["Hilton Auckland", "DoubleTree by Hilton Queenstown"],
-  "Papua New Guinea": ["Hilton Port Moresby"],
-  "Philippines": ["Conrad Manila", "Hilton Manila"],
-  "Singapore": ["Conrad Centennial Singapore", "Hilton Garden Inn Singapore Serangoon", "Hilton Singapore Orchard", "DoubleTree by Hilton Singapore"],
-  "South Korea": ["Conrad Seoul", "Hilton Busan"],
-  "Sri Lanka": ["Hilton Colombo", "Hilton Colombo Residences"],
-  "Taiwan": ["Conrad Taipei", "Hilton Taipei Sinban"],
-  "Thailand": ["Conrad Bangkok", "Conrad Koh Samui", "Hilton Bangkok Grande Asoke", "Hilton Hua Hin Resort & Spa", "Hilton Pattaya", "Hilton Phuket Arcadia Resort & Spa", "Hilton Sukhumvit Bangkok", "DoubleTree by Hilton Bangkok Ploenchit", "DoubleTree by Hilton Sukhumvit Bangkok"],
-  "Vietnam": ["Conrad Da Nang", "Conrad Ho Chi Minh City", "Hilton Hanoi Opera", "Hilton Ho Chi Minh City"]
-};
-
-// Flatten all hotels into a single array for showing all hotels
-const allHotels = Object.values(hotelsByDestination).flat();
+interface HotelData {
+  destinations: string[];
+  hotels: string[];
+  hotelsByDestination: Record<string, string[]>;
+  success: boolean;
+}
 
 interface AvailabilityResult {
   date: string;
@@ -55,12 +30,70 @@ export function VoucherForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<AvailabilityResult[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [hotelData, setHotelData] = useState<HotelData>({
+    destinations: [],
+    hotels: [],
+    hotelsByDestination: {},
+    success: false
+  });
+  const [isLoadingHotelData, setIsLoadingHotelData] = useState(true);
+  
   const {
     toast
   } = useToast();
+  
+  // Fetch hotel data on component mount
+  useEffect(() => {
+    const fetchHotelData = async () => {
+      try {
+        setIsLoadingHotelData(true);
+        console.log('Fetching hotel data...');
+        
+        const { data, error } = await supabase.functions.invoke('fetch-hotel-data');
+        
+        if (error) {
+          console.error('Error fetching hotel data:', error);
+          toast({
+            title: "Error",
+            description: "Failed to load hotel data. Using fallback data.",
+            variant: "destructive",
+          });
+          // Use fallback data
+          setHotelData({
+            destinations: ["Australia", "China", "Hong Kong", "India", "Indonesia", "Japan", "Laos", "Malaysia", "Myanmar", "Nepal", "Papua New Guinea", "Philippines", "Singapore", "Sri Lanka", "Taiwan", "Thailand", "Vietnam"],
+            hotels: ["Hilton Singapore Orchard"],
+            hotelsByDestination: { "Singapore": ["Hilton Singapore Orchard"] },
+            success: false
+          });
+        } else {
+          console.log('Successfully fetched hotel data:', data);
+          setHotelData(data);
+        }
+      } catch (error) {
+        console.error('Error in fetchHotelData:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load hotel data. Using fallback data.",
+          variant: "destructive",
+        });
+        // Use fallback data
+        setHotelData({
+          destinations: ["Australia", "China", "Hong Kong", "India", "Indonesia", "Japan", "Laos", "Malaysia", "Myanmar", "Nepal", "Papua New Guinea", "Philippines", "Singapore", "Sri Lanka", "Taiwan", "Thailand", "Vietnam"],
+          hotels: ["Hilton Singapore Orchard"],
+          hotelsByDestination: { "Singapore": ["Hilton Singapore Orchard"] },
+          success: false
+        });
+      } finally {
+        setIsLoadingHotelData(false);
+      }
+    };
+
+    fetchHotelData();
+  }, [toast]);
+  
   const isFormValid = creditCard.length === 6 && voucherCode.length === 10 && destination && destination !== 'Select Destination' && hotel && hotel !== 'Select Hotel' && voucherExpiry;
   const canShowDestination = creditCard.length === 6 && voucherCode.length === 10 && voucherExpiry;
-  const availableHotels = (destination && destination !== 'Select Destination') ? hotelsByDestination[destination] || [] : allHotels;
+  const availableHotels = (destination && destination !== 'Select Destination') ? hotelData.hotelsByDestination[destination] || [] : hotelData.hotels;
 
   const getBookingUrl = (result: AvailabilityResult) => {
     // Use the real booking URL from the browser automation result if available
@@ -273,7 +306,7 @@ export function VoucherForm() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Select Destination">Select Destination</SelectItem>
-                    {destinations.map(dest => <SelectItem key={dest} value={dest}>
+                    {hotelData.destinations.map(dest => <SelectItem key={dest} value={dest}>
                         {dest}
                       </SelectItem>)}
                   </SelectContent>
@@ -285,9 +318,9 @@ export function VoucherForm() {
                   <Building className="h-4 w-4 text-primary" />
                   Hotel
                 </Label>
-                <Select value={hotel} onValueChange={setHotel}>
+                <Select value={hotel} onValueChange={setHotel} disabled={isLoadingHotelData}>
                   <SelectTrigger id="hotel">
-                    <SelectValue placeholder="Select Hotel" />
+                    <SelectValue placeholder={isLoadingHotelData ? "Loading hotels..." : "Select Hotel"} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Select Hotel">Select Hotel</SelectItem>
