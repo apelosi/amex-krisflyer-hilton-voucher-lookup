@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 // Mock destination and hotel data based on actual Hilton AMEX KrisFlyer website
 const destinations = ["Australia", "Brunei", "Cambodia", "China", "Hong Kong", "India", "Indonesia", "Japan", "Laos", "Macau", "Malaysia", "Maldives", "Myanmar", "Nepal", "New Zealand", "Papua New Guinea", "Philippines", "Singapore", "South Korea", "Sri Lanka", "Taiwan", "Thailand", "Vietnam"];
+
 const hotelsByDestination: Record<string, string[]> = {
   "Australia": ["Conrad Brisbane", "Conrad Sydney", "Hilton Adelaide", "Hilton Brisbane", "Hilton Cairns", "Hilton Melbourne South Wharf", "Hilton Perth", "Hilton Sydney", "DoubleTree by Hilton Adelaide", "DoubleTree by Hilton Brisbane", "DoubleTree by Hilton Sydney"],
   "Brunei": ["The Empire Brunei"],
@@ -36,6 +37,9 @@ const hotelsByDestination: Record<string, string[]> = {
   "Vietnam": ["Conrad Da Nang", "Conrad Ho Chi Minh City", "Hilton Hanoi Opera", "Hilton Ho Chi Minh City"]
 };
 
+// Flatten all hotels into a single array for showing all hotels
+const allHotels = Object.values(hotelsByDestination).flat();
+
 interface AvailabilityResult {
   date: string;
   available: boolean;
@@ -54,9 +58,9 @@ export function VoucherForm() {
   const {
     toast
   } = useToast();
-  const isFormValid = creditCard.length === 6 && voucherCode.length === 10 && destination && hotel && voucherExpiry;
+  const isFormValid = creditCard.length === 6 && voucherCode.length === 10 && destination && destination !== 'Select Destination' && hotel && hotel !== 'Select Hotel' && voucherExpiry;
   const canShowDestination = creditCard.length === 6 && voucherCode.length === 10 && voucherExpiry;
-  const availableHotels = destination ? hotelsByDestination[destination] || [] : [];
+  const availableHotels = (destination && destination !== 'Select Destination') ? hotelsByDestination[destination] || [] : allHotels;
 
   const getBookingUrl = (result: AvailabilityResult) => {
     // Use the real booking URL from the browser automation result if available
@@ -257,11 +261,18 @@ export function VoucherForm() {
                   <MapPin className="h-4 w-4 text-primary" />
                   Destination
                 </Label>
-                <Select value={destination} onValueChange={setDestination}>
+                <Select value={destination} onValueChange={(value) => {
+                  setDestination(value);
+                  // Clear hotel selection if "Select Destination" is chosen
+                  if (value === 'Select Destination') {
+                    setHotel(undefined);
+                  }
+                }}>
                   <SelectTrigger id="destination">
                     <SelectValue placeholder="Select Destination" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="Select Destination">Select Destination</SelectItem>
                     {destinations.map(dest => <SelectItem key={dest} value={dest}>
                         {dest}
                       </SelectItem>)}
@@ -269,7 +280,7 @@ export function VoucherForm() {
                 </Select>
               </div>}
 
-            {destination && <div className="space-y-2">
+            {canShowDestination && <div className="space-y-2">
                 <Label htmlFor="hotel" className="text-sm font-semibold flex items-center gap-2">
                   <Building className="h-4 w-4 text-primary" />
                   Hotel
@@ -279,6 +290,7 @@ export function VoucherForm() {
                     <SelectValue placeholder="Select Hotel" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="Select Hotel">Select Hotel</SelectItem>
                     {availableHotels.map(hotelName => <SelectItem key={hotelName} value={hotelName}>
                         {hotelName}
                       </SelectItem>)}
