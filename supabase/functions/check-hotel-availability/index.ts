@@ -36,66 +36,130 @@ serve(async (req) => {
     const requestData: AvailabilityRequest = await req.json();
     console.log('Checking availability for:', requestData);
 
-    // Create browser automation script for Hilton booking
+    // Mapping of destinations to ctyhocn codes for AMEX KrisFlyer vouchers
+    const destinationCodes: Record<string, string> = {
+      "Australia": "SYDAU",
+      "Brunei": "BWNCN",
+      "Cambodia": "REPKH",
+      "China": "PEKCN",
+      "Hong Kong": "HKGHK",
+      "India": "DELIN",
+      "Indonesia": "JKTID",
+      "Japan": "TYOJP",
+      "Laos": "VTELK",
+      "Macau": "MFMMO",
+      "Malaysia": "KULMY",
+      "Maldives": "MALEO",
+      "Myanmar": "RGRMM",
+      "Nepal": "KTMNP",
+      "New Zealand": "AKLNZ",
+      "Papua New Guinea": "MREPG",
+      "Philippines": "MNLPH",
+      "Singapore": "SINSG",
+      "South Korea": "SELKR",
+      "Sri Lanka": "CMBLK",
+      "Taiwan": "TPETW",
+      "Thailand": "BKKTH",
+      "Vietnam": "SGMVN"
+    };
+
+    // Get the destination code
+    const cityCode = destinationCodes[requestData.destination] || requestData.destination.slice(0, 5).toUpperCase();
+    
+    // Construct the AMEX KrisFlyer booking URL with proper parameters
+    const arrivalDate = requestData.arrivalDate;
+    const departureDate = new Date(arrivalDate);
+    departureDate.setDate(departureDate.getDate() + 1);
+    const departureDateStr = departureDate.toISOString().split('T')[0];
+    
+    const bookingParams = new URLSearchParams({
+      ctyhocn: cityCode,
+      arrivalDate: arrivalDate,
+      departureDate: departureDateStr,
+      groupCode: 'AMEXKF',
+      room1NumAdults: '1',
+      cid: 'OH,MB,APACAMEXKrisFlyerComplimentaryNight,MULTIBR,OfferCTA,Offer,Book'
+    });
+    
+    const bookingUrl = `https://www.hilton.com/en/book/reservation/rooms/?${bookingParams.toString()}`;
+
+    // Create browser automation script for AMEX KrisFlyer booking
     const script = `
       const page = await browser.newPage();
       
       try {
-        // Navigate to Hilton booking page
-        await page.goto('https://www.hilton.com/en/book/', { waitUntil: 'networkidle2' });
+        // Navigate directly to the AMEX KrisFlyer booking URL
+        await page.goto('${bookingUrl}', { waitUntil: 'networkidle2' });
         
-        // Fill in destination
-        await page.waitForSelector('#destination-input', { timeout: 10000 });
-        await page.type('#destination-input', '${requestData.destination}');
-        await page.waitForTimeout(2000);
+        // Wait for the page to load and look for hotel results
+        await page.waitForTimeout(5000);
         
-        // Select dates
-        await page.click('[data-testid="check-in-date"]');
-        await page.waitForTimeout(1000);
+        // Check if we need to handle any modals or overlays
+        const modalCloseButton = await page.$('.modal-close, .close-button, [data-testid="close-modal"]');
+        if (modalCloseButton) {
+          await modalCloseButton.click();
+          await page.waitForTimeout(2000);
+        }
         
-        // Navigate to specific date (simplified - would need more complex date selection)
-        const arrivalDate = new Date('${requestData.arrivalDate}');
-        await page.click(\`[data-date="\${arrivalDate.toISOString().split('T')[0]}"]\`);
-        
-        // Set checkout date (next day)
-        const checkoutDate = new Date(arrivalDate);
-        checkoutDate.setDate(checkoutDate.getDate() + 1);
-        await page.click(\`[data-date="\${checkoutDate.toISOString().split('T')[0]}"]\`);
-        
-        // Search for hotels
-        await page.click('[data-testid="search-button"]');
-        await page.waitForNavigation({ waitUntil: 'networkidle2' });
-        
-        // Look for the specific hotel
+        // Look for hotel results and availability
         const hotelResults = await page.evaluate((hotelName) => {
-          const hotels = Array.from(document.querySelectorAll('[data-testid="hotel-card"]'));
-          return hotels.map(hotel => {
-            const name = hotel.querySelector('h3')?.textContent || '';
-            const available = hotel.querySelector('[data-testid="book-now"]') !== null;
-            const roomsText = hotel.querySelector('[data-testid="rooms-available"]')?.textContent || '';
-            const roomCount = parseInt(roomsText.match(/\\d+/)?.[0] || '0');
-            const bookingUrl = hotel.querySelector('a')?.href || '';
+          const results = [];
+          
+          // Look for room availability sections
+          const roomSections = Array.from(document.querySelectorAll('[data-testid="room-option"], .room-option, .room-card'));
+          
+          if (roomSections.length === 0) {
+            // Fallback: look for any hotel information containers
+            const hotelContainers = Array.from(document.querySelectorAll('.hotel-details, .property-details, .room-details'));
             
-            return {
-              name,
-              available,
-              roomCount,
-              bookingUrl: bookingUrl.includes('hilton.com') ? bookingUrl : \`https://www.hilton.com\${bookingUrl}\`
-            };
-          });
+            hotelContainers.forEach(container => {
+              const name = container.querySelector('h1, h2, h3, .hotel-name, .property-name')?.textContent?.trim() || '';
+              const available = container.querySelector('.book-now, .select-room, .available, [data-testid="book-button"]') !== null;
+              const roomsText = container.querySelector('.rooms-available, .availability-text')?.textContent || '';
+              const roomCount = parseInt(roomsText.match(/\\d+/)?.[0] || '0');
+              
+              if (name) {
+                results.push({
+                  name,
+                  available,
+                  roomCount: available ? (roomCount || 1) : 0,
+                  bookingUrl: window.location.href
+                });
+              }
+            });
+          } else {
+            // Process room sections
+            roomSections.forEach(room => {
+              const name = room.querySelector('h1, h2, h3, .room-name, .hotel-name')?.textContent?.trim() || hotelName;
+              const available = room.querySelector('.book-now, .select-room, .available, [data-testid="book-button"]') !== null;
+              const roomsText = room.querySelector('.rooms-available, .availability-text')?.textContent || '';
+              const roomCount = parseInt(roomsText.match(/\\d+/)?.[0] || '0');
+              
+              results.push({
+                name,
+                available,
+                roomCount: available ? (roomCount || 1) : 0,
+                bookingUrl: window.location.href
+              });
+            });
+          }
+          
+          return results;
         }, '${requestData.hotel}');
         
         return {
           success: true,
           results: hotelResults,
-          currentUrl: page.url()
+          currentUrl: page.url(),
+          bookingUrl: '${bookingUrl}'
         };
         
       } catch (error) {
         return {
           success: false,
           error: error.message,
-          currentUrl: page.url()
+          currentUrl: page.url(),
+          bookingUrl: '${bookingUrl}'
         };
       } finally {
         await page.close();
@@ -103,7 +167,7 @@ serve(async (req) => {
     `;
 
     // Call Browserless API
-    const browserlessResponse = await fetch(`https://chrome.browserless.io/function?token=${browserlessApiKey}`, {
+    const browserlessResponse = await fetch(`https://production-sfo.browserless.io/function?token=${browserlessApiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -142,11 +206,23 @@ serve(async (req) => {
         const currentDate = new Date(startDate);
         currentDate.setDate(startDate.getDate() + i);
         
+        // Generate proper booking URL for this date
+        const dateParams = new URLSearchParams({
+          ctyhocn: cityCode,
+          arrivalDate: currentDate.toISOString().split('T')[0],
+          departureDate: new Date(currentDate.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          groupCode: 'AMEXKF',
+          room1NumAdults: '1',
+          cid: 'OH,MB,APACAMEXKrisFlyerComplimentaryNight,MULTIBR,OfferCTA,Offer,Book'
+        });
+        
+        const dateBookingUrl = `https://www.hilton.com/en/book/reservation/rooms/?${dateParams.toString()}`;
+        
         availability.push({
           date: currentDate.toISOString().split('T')[0],
           available: targetHotel.available && i < 3, // Simulate some availability
           roomCount: targetHotel.available ? Math.max(1, targetHotel.roomCount || Math.floor(Math.random() * 5) + 1) : 0,
-          bookingUrl: targetHotel.available ? targetHotel.bookingUrl : undefined
+          bookingUrl: targetHotel.available ? dateBookingUrl : undefined
         });
       }
     }
