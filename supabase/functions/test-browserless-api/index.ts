@@ -68,8 +68,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        url: 'https://httpbin.org/get',
-        waitFor: 1000
+        url: 'https://httpbin.org/get'
       })
     });
 
