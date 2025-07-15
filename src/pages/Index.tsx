@@ -78,9 +78,9 @@ const Index = () => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-muted/30 border-t py-4">
+      <footer className="bg-gradient-hero py-4">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-white">
             © 2025 <a href="https://vibez.ventures" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline transition-all duration-200">Vibez Ventures</a>. All rights reserved.
           </p>
         </div>
