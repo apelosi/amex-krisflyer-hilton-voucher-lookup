@@ -1,1 +1,4 @@
 project_id = "ynlnrvuqypmwpevabtdc"
+
+[functions.test-browserless-api]
+verify_jwt = false
