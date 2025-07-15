@@ -1,25 +1,20 @@
 import { VoucherForm } from "@/components/VoucherForm";
 import heroImage from "@/assets/hero-travel.jpg";
 import { Building, Shield, Clock } from "lucide-react";
-
 const Index = () => {
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       {/* Hero Section */}
       <div className="relative h-64 md:h-80 overflow-hidden">
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${heroImage})` }}
-        />
+        <div className="absolute inset-0 bg-cover bg-center" style={{
+        backgroundImage: `url(${heroImage})`
+      }} />
         <div className="absolute inset-0 bg-gradient-hero opacity-75" />
         <div className="relative z-10 h-full flex items-center justify-center text-center px-4">
           <div className="max-w-4xl">
             <h1 className="text-3xl md:text-5xl font-bold text-white mb-4">
               AMEX KrisFlyer Hilton Voucher Lookup
             </h1>
-            <p className="text-lg md:text-xl text-white/90 mb-2">
-              Check availability across multiple dates automatically
-            </p>
+            <p className="text-lg md:text-xl text-white/90 mb-2">Check availability at a hotel across all dates</p>
             <p className="text-sm text-white/80">
               by <a href="https://vibez.ventures" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline transition-all duration-200">Vibez Ventures</a> - Not affiliated with Hilton, AMEX, or KrisFlyer
             </p>
@@ -81,8 +76,6 @@ const Index = () => {
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
