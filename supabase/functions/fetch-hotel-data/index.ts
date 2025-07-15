@@ -56,34 +56,46 @@ serve(async (req) => {
     }
 
     // Parse HTML to extract select options
-    const destinations = extractSelectOptions(htmlContent, 'destination');
-    const hotels = extractSelectOptions(htmlContent, 'hotel');
+    const destinations = extractSelectOptions(htmlContent, 'amex_dest_select');
+    const hotelData = extractHotelOptions(htmlContent, 'amex_select');
     
     console.log('Extracted destinations:', destinations);
-    console.log('Extracted hotels:', hotels);
+    console.log('Extracted hotel data:', hotelData);
     
     if (destinations.length === 0) {
       console.error('No destinations found in HTML');
       throw new Error('No destinations found on the website');
     }
     
-    if (hotels.length === 0) {
+    if (hotelData.length === 0) {
       console.error('No hotels found in HTML');
       throw new Error('No hotels found on the website');
     }
 
-    // Create mapping - for now, all hotels available for all destinations
-    // In a real implementation, this would need JavaScript interaction to get destination-specific hotels
+    // Build data structures
+    const hotels = hotelData.map(hotel => hotel.name);
+    const hotelCodes: Record<string, string> = {};
     const hotelsByDestination: Record<string, string[]> = {};
-    destinations.forEach(dest => {
-      hotelsByDestination[dest] = hotels;
+    
+    // Initialize destination arrays
+    destinations.forEach(destination => {
+      hotelsByDestination[destination] = [];
+    });
+    
+    // Process hotel data
+    hotelData.forEach(hotel => {
+      hotelCodes[hotel.name] = hotel.ctyhocn;
+      if (hotel.destination && hotelsByDestination[hotel.destination]) {
+        hotelsByDestination[hotel.destination].push(hotel.name);
+      }
     });
 
     const result = {
       success: true,
       destinations,
       hotels,
-      hotelsByDestination
+      hotelsByDestination,
+      hotelCodes
     };
 
     console.log('Function completed successfully, returning:', {
@@ -108,7 +120,8 @@ serve(async (req) => {
       error: error.message,
       destinations: [],
       hotels: [],
-      hotelsByDestination: {}
+      hotelsByDestination: {},
+      hotelCodes: {}
     }), {
       status: 500,
       headers: { 
@@ -172,6 +185,74 @@ function extractSelectOptions(html: string, selectId: string): string[] {
     
   } catch (error) {
     console.error(`Error extracting options for ${selectId}:`, error);
+    return options;
+  }
+}
+
+interface HotelOption {
+  name: string;
+  ctyhocn: string;
+  destination: string;
+}
+
+function extractHotelOptions(html: string, selectId: string): HotelOption[] {
+  const options: HotelOption[] = [];
+  
+  try {
+    console.log(`Extracting hotel options for select#${selectId}...`);
+    
+    // Find the select element by id with more flexible regex
+    const selectRegex = new RegExp(`<select[^>]*id\\s*=\\s*["']${selectId}["'][^>]*>([\\s\\S]*?)</select>`, 'i');
+    const selectMatch = html.match(selectRegex);
+    
+    if (!selectMatch) {
+      console.log(`No select element found for ${selectId}`);
+      // Try to find it with name attribute as fallback
+      const nameRegex = new RegExp(`<select[^>]*name\\s*=\\s*["']${selectId}["'][^>]*>([\\s\\S]*?)</select>`, 'i');
+      const nameMatch = html.match(nameRegex);
+      if (!nameMatch) {
+        console.log(`No select element found with name=${selectId} either`);
+        return options;
+      }
+      console.log(`Found select element with name=${selectId}`);
+    }
+    
+    const selectContent = selectMatch ? selectMatch[1] : '';
+    console.log(`Select content length for ${selectId}:`, selectContent.length);
+    
+    // Extract option elements with value and data-dest attributes
+    const optionRegex = /<option[^>]*value\s*=\s*["']([^"']*)["'][^>]*data-dest\s*=\s*["']([^"']*)["'][^>]*>(.*?)<\/option>/gi;
+    let match;
+    let optionCount = 0;
+    
+    while ((match = optionRegex.exec(selectContent)) !== null) {
+      optionCount++;
+      const ctyhocn = match[1]?.trim() || '';
+      const destination = match[2]?.trim() || '';
+      const name = match[3]?.trim() || '';
+      
+      console.log(`Hotel option ${optionCount}: ctyhocn="${ctyhocn}", destination="${destination}", name="${name}"`);
+      
+      // Skip empty options, default options, and placeholder options
+      if (ctyhocn && destination && name && 
+          !name.toLowerCase().startsWith('select') && 
+          !name.toLowerCase().includes('choose') &&
+          !name.toLowerCase().includes('please select') &&
+          name !== '...' &&
+          name !== '--') {
+        options.push({
+          name,
+          ctyhocn,
+          destination
+        });
+      }
+    }
+    
+    console.log(`Found ${options.length} valid hotel options for ${selectId}`);
+    return options;
+    
+  } catch (error) {
+    console.error(`Error extracting hotel options for ${selectId}:`, error);
     return options;
   }
 }

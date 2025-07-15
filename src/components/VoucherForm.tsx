@@ -12,6 +12,7 @@ interface HotelData {
   destinations: string[];
   hotels: string[];
   hotelsByDestination: Record<string, string[]>;
+  hotelCodes: Record<string, string>;
   success: boolean;
 }
 
@@ -34,6 +35,7 @@ export function VoucherForm() {
     destinations: [],
     hotels: [],
     hotelsByDestination: {},
+    hotelCodes: {},
     success: false
   });
   const [isLoadingHotelData, setIsLoadingHotelData] = useState(true);
@@ -62,6 +64,7 @@ export function VoucherForm() {
             destinations: [],
             hotels: [],
             hotelsByDestination: {},
+            hotelCodes: {},
             success: false
           });
         } else {
@@ -79,6 +82,7 @@ export function VoucherForm() {
           destinations: [],
           hotels: [],
           hotelsByDestination: {},
+          hotelCodes: {},
           success: false
         });
       } finally {
@@ -98,59 +102,6 @@ export function VoucherForm() {
     return result.bookingUrl || generateBookingUrl(result.date);
   };
 
-  // Mapping of destinations to ctyhocn codes for AMEX KrisFlyer vouchers
-  const destinationCodes: Record<string, string> = {
-    "Australia": "SYDAU",
-    "Brunei": "BWNCN",
-    "Cambodia": "REPKH",
-    "China": "PEKCN",
-    "Hong Kong": "HKGHK",
-    "India": "DELIN",
-    "Indonesia": "JKTID",
-    "Japan": "TYOJP",
-    "Laos": "VTELK",
-    "Macau": "MFMMO",
-    "Malaysia": "KULMY",
-    "Maldives": "MALEO",
-    "Myanmar": "RGRMM",
-    "Nepal": "KTMNP",
-    "New Zealand": "AKLNZ",
-    "Papua New Guinea": "MREPG",
-    "Philippines": "MNLPH",
-    "Singapore": "SINSG",
-    "South Korea": "SELKR",
-    "Sri Lanka": "CMBLK",
-    "Taiwan": "TPETW",
-    "Thailand": "BKKTH",
-    "Vietnam": "SGMVN"
-  };
-
-  // Mapping of hotels to specific property codes
-  const hotelCodes: Record<string, string> = {
-    // Australia
-    "Conrad Brisbane": "BNECCI",
-    "Conrad Sydney": "SYDCCI",
-    "Hilton Adelaide": "ADLHI",
-    "Hilton Brisbane": "BNEHI",
-    "Hilton Cairns": "CNSHI",
-    "Hilton Melbourne South Wharf": "MELHI",
-    "Hilton Perth": "PERHI",
-    "Hilton Sydney": "SYDHI",
-    // Singapore
-    "Conrad Centennial Singapore": "SINCCI",
-    "Hilton Garden Inn Singapore Serangoon": "SINGI",
-    "Hilton Singapore Orchard": "SINHI",
-    "DoubleTree by Hilton Singapore": "SINDT",
-    // Thailand
-    "Conrad Bangkok": "BKKCCI",
-    "Conrad Koh Samui": "USPCCI",
-    "Hilton Bangkok Grande Asoke": "BKKAS",
-    "Hilton Hua Hin Resort & Spa": "HUHHI",
-    "Hilton Pattaya": "BKPHI",
-    "Hilton Phuket Arcadia Resort & Spa": "HKTHI",
-    "Hilton Sukhumvit Bangkok": "BKKHI",
-    // Add more mappings as needed - these are the most commonly used
-  };
 
   const generateBookingUrl = (date: string) => {
     // Generate booking URL with real AMEX KrisFlyer parameters
@@ -159,14 +110,11 @@ export function VoucherForm() {
     departureDate.setDate(departureDate.getDate() + 1);
     const departureDateStr = departureDate.toISOString().split('T')[0];
     
-    // Get the destination code
-    const cityCode = destinationCodes[destination] || destination.slice(0, 5).toUpperCase();
-    
-    // Get the hotel code, fallback to a generic pattern
-    const hotelCode = hotelCodes[hotel] || hotel.slice(0, 5).toUpperCase().replace(/[^A-Z]/g, '');
+    // Get the hotel code from the dynamic data
+    const hotelCode = hotelData.hotelCodes[hotel] || hotel.slice(0, 5).toUpperCase().replace(/[^A-Z]/g, '');
     
     const params = new URLSearchParams({
-      ctyhocn: cityCode,
+      ctyhocn: hotelCode,
       arrivalDate: arrivalDate,
       departureDate: departureDateStr,
       groupCode: 'AMEXKF',
