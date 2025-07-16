@@ -185,9 +185,25 @@ export function VoucherForm() {
       });
     } catch (error) {
       console.error('Availability check error:', error);
+      
+      // Provide user-friendly error messages with guidance
+      let title = "Verification Failed";
+      let description = "We couldn't verify your voucher details. ";
+      
+      if (error.message?.includes('voucher details') || error.message?.includes('AMEX KrisFlyer')) {
+        description += "Please double-check your voucher code and credit card number (first 6 digits). If the issue persists, please contact support at https://vibez.ventures for assistance.";
+      } else if (error.message?.includes('groupCode') || error.message?.includes('booking URL')) {
+        description += "There was an issue processing your voucher. Please verify your information is correct or contact support at https://vibez.ventures.";
+      } else if (error.message?.includes('availability')) {
+        title = "Availability Check Failed";
+        description = "We couldn't check room availability at this time. Please try again in a few minutes or contact support at https://vibez.ventures.";
+      } else {
+        description += "Please check your information and try again. If the problem continues, contact support at https://vibez.ventures.";
+      }
+      
       toast({
-        title: "Search Failed",
-        description: error.message || "Unable to check availability. Please try again.",
+        title,
+        description,
         variant: "destructive"
       });
     } finally {
