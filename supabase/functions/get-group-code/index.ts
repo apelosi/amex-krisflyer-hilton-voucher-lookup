@@ -89,8 +89,20 @@ serve(async (req) => {
 
     if (!browserlessResponse.ok) {
       const errorText = await browserlessResponse.text()
-      console.error('Browserless API error:', errorText)
-      throw new Error(`Browserless API error: ${browserlessResponse.status}`)
+      console.error('Browserless API error status:', browserlessResponse.status)
+      console.error('Browserless API error response:', errorText)
+      console.error('Browserless API headers:', Object.fromEntries(browserlessResponse.headers.entries()))
+      
+      // Check if it's an authentication issue
+      if (browserlessResponse.status === 401) {
+        throw new Error('Browserless API authentication failed - check API key')
+      } else if (browserlessResponse.status === 403) {
+        throw new Error('Browserless API access forbidden - check API key permissions')
+      } else if (browserlessResponse.status >= 500) {
+        throw new Error('Browserless service is temporarily unavailable - please try again later')
+      } else {
+        throw new Error(`Browserless API error: ${browserlessResponse.status} - ${errorText.substring(0, 200)}`)
+      }
     }
 
     const browserlessData = await browserlessResponse.json()
