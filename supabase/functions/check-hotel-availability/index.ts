@@ -1,4 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,6 +17,7 @@ interface AvailabilityRequest {
   hotel: string;
   arrivalDate: string;
   voucherExpiry: string;
+  groupCode: string;
 }
 
 interface AvailabilityResult {
@@ -36,8 +42,21 @@ serve(async (req) => {
     const requestData: AvailabilityRequest = await req.json();
     console.log('Checking availability for:', requestData);
 
-    // For now, let's create a simpler implementation that generates mock data
-    // while we test the basic functionality
+    // Get hotel data to find the correct hotelCode for the selected hotel
+    const { data: hotelData, error: hotelError } = await supabase.functions.invoke('fetch-hotel-data');
+    
+    if (hotelError || !hotelData?.success) {
+      throw new Error('Failed to fetch hotel data for hotel code lookup');
+    }
+    
+    // Find the selected hotel to get its hotelCode
+    const selectedHotel = hotelData.hotels.find(h => h.name === requestData.hotel);
+    if (!selectedHotel) {
+      throw new Error(`Hotel "${requestData.hotel}" not found in available hotels`);
+    }
+    
+    const hotelCode = selectedHotel.hotelCode;
+    console.log(`Using hotelCode: ${hotelCode} for hotel: ${requestData.hotel}`);
     
     const startDate = new Date(requestData.arrivalDate);
     const expiryDate = new Date(requestData.voucherExpiry);
@@ -48,12 +67,12 @@ serve(async (req) => {
     while (currentDate <= expiryDate && availability.length < 30) { // Limit to 30 dates
       const dateStr = currentDate.toISOString().split('T')[0];
       
-      // Generate booking URL using static parameters for now
+      // Generate booking URL using the correct hotelCode and dynamic groupCode
       const bookingParams = new URLSearchParams({
-        ctyhocn: 'SINSG', // Singapore default
+        ctyhocn: hotelCode, // Use the actual hotel's hotelCode
         arrivalDate: dateStr,
         departureDate: new Date(currentDate.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        groupCode: 'AMEXKF',
+        groupCode: requestData.groupCode, // Use the dynamic groupCode
         room1NumAdults: '1',
         cid: 'OH,MB,APACAMEXKrisFlyerComplimentaryNight,MULTIBR,OfferCTA,Offer,Book'
       });
