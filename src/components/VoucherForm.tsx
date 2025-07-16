@@ -105,7 +105,7 @@ export function VoucherForm() {
   };
 
 
-  const generateBookingUrl = (date: string, groupCode: string = 'AMEXKF') => {
+  const generateBookingUrl = (date: string, groupCode: string) => {
     // Generate booking URL with real AMEX KrisFlyer parameters
     const arrivalDate = date;
     const departureDate = new Date(date);
@@ -113,7 +113,11 @@ export function VoucherForm() {
     const departureDateStr = departureDate.toISOString().split('T')[0];
     
     // Get the hotel code from the dynamic data - this should be the actual hotelCode for the selected hotel
-    const hotelCode = hotel && hotelData.hotelCodes[hotel] ? hotelData.hotelCodes[hotel] : 'SINSG';
+    const hotelCode = hotel && hotelData.hotelCodes[hotel] ? hotelData.hotelCodes[hotel] : null;
+    
+    if (!hotelCode) {
+      throw new Error(`Hotel code not found for selected hotel: ${hotel}`);
+    }
     
     const params = new URLSearchParams({
       ctyhocn: hotelCode,

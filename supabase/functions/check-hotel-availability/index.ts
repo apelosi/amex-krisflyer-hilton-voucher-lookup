@@ -64,50 +64,9 @@ serve(async (req) => {
     
     const availability: AvailabilityResult[] = [];
     
-    while (currentDate <= expiryDate && availability.length < 30) { // Limit to 30 dates
-      const dateStr = currentDate.toISOString().split('T')[0];
-      
-      // Generate booking URL using the correct hotelCode and dynamic groupCode
-      const bookingParams = new URLSearchParams({
-        ctyhocn: hotelCode, // Use the actual hotel's hotelCode
-        arrivalDate: dateStr,
-        departureDate: new Date(currentDate.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        groupCode: requestData.groupCode, // Use the dynamic groupCode
-        room1NumAdults: '1',
-        cid: 'OH,MB,APACAMEXKrisFlyerComplimentaryNight,MULTIBR,OfferCTA,Offer,Book'
-      });
-      
-      const bookingUrl = `https://www.hilton.com/en/book/reservation/rooms/?${bookingParams.toString()}`;
-      
-      // For testing, randomly assign availability (this would be replaced with real data)
-      const isAvailable = Math.random() > 0.3; // 70% chance of availability
-      const roomCount = isAvailable ? Math.floor(Math.random() * 5) + 1 : 0;
-      
-      availability.push({
-        date: dateStr,
-        available: isAvailable,
-        roomCount: roomCount,
-        bookingUrl: isAvailable ? bookingUrl : undefined
-      });
-      
-      // Move to next day
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    console.log(`Generated ${availability.length} availability results`);
-
-    return new Response(JSON.stringify({ 
-      success: true,
-      availability,
-      debugInfo: {
-        hotelFound: true,
-        totalHotelsFound: 1,
-        currentUrl: 'https://www.hilton.com/en/book/reservation/rooms/',
-        message: 'Using simplified mock data for testing'
-      }
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    // Real availability checking would be implemented here
+    // For now, return error since we don't have real availability data
+    throw new Error('Real-time availability checking is not yet implemented. Please check availability directly on the Hilton website.');
 
   } catch (error) {
     console.error('Error in check-hotel-availability function:', error);
