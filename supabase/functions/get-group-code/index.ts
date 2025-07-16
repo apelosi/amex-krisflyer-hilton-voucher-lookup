@@ -63,103 +63,77 @@ serve(async (req) => {
       try {
         console.log(`Attempt ${attempt}/${maxRetries}: Starting Browserless automation...`);
         
-        // Submit form to AMEX KrisFlyer page to get the groupCode with improved automation
-        const browserlessResponse = await fetch(`https://production-sfo.browserless.io/content?token=${browserlessApiKey}`, {
+        // Submit form to AMEX KrisFlyer page to get the groupCode using puppeteer automation
+        const browserlessResponse = await fetch(`https://production-sfo.browserless.io/function?token=${browserlessApiKey}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Cache-Control': 'no-cache',
           },
           body: JSON.stringify({
-            url: 'https://apac.hilton.com/amexkrisflyer',
-            waitForSelector: 'form',
-            timeout: 30000,
-            actions: [
-              // Wait for page to fully load
-              {
-                type: 'wait',
-                timeout: 3000
-              },
-              // Fill in the credit card field with more specific selector
-              {
-                type: 'type',
-                selector: 'input[name="CCNumber"]',
-                text: cleanedParams.creditCard
-              },
-              // Fill in the voucher code field
-              {
-                type: 'type',
-                selector: 'input[name="VoucherCode"]',
-                text: cleanedParams.voucherCode
-              },
-              // Wait for form elements to be ready
-              {
-                type: 'wait',
-                timeout: 1000
-              },
-              // Select destination with fallback selectors
-              {
-                type: 'select',
-                selector: 'select[name="amex_dest_select"]',
-                value: cleanedParams.destination
-              },
-              // Wait longer for hotels to load based on destination
-              {
-                type: 'wait',
-                timeout: 4000
-              },
-              // Verify hotel dropdown is loaded before selecting
-              {
-                type: 'waitForSelector',
-                selector: 'select[name="amex_select"] option[value="' + cleanedParams.hotel + '"]',
-                timeout: 5000
-              },
-              // Select hotel
-              {
-                type: 'select',
-                selector: 'select[name="amex_select"]',
-                value: cleanedParams.hotel
-              },
-              // Clear and set arrival date
-              {
-                type: 'click',
-                selector: 'input[name="arrivalDate"]'
-              },
-              {
-                type: 'key',
-                key: 'Control+a'
-              },
-              {
-                type: 'type',
-                selector: 'input[name="arrivalDate"]',
-                text: cleanedParams.arrivalDate
-              },
-              // Wait before checking the Go checkbox
-              {
-                type: 'wait',
-                timeout: 1000
-              },
-              // Check the "Go" checkbox
-              {
-                type: 'click',
-                selector: 'input[name="Go"]'
-              },
-              // Wait before submitting
-              {
-                type: 'wait',
-                timeout: 1000
-              },
-              // Submit the form
-              {
-                type: 'click',
-                selector: 'input[type="submit"]'
-              },
-              // Wait longer for redirect to complete
-              {
-                type: 'wait',
-                timeout: 8000
+            code: `
+              export default async ({ page, context }) => {
+                const { creditCard, voucherCode, destination, hotel, arrivalDate } = context;
+                
+                try {
+                  // Navigate to the AMEX KrisFlyer page
+                  await page.goto('https://apac.hilton.com/amexkrisflyer', { waitUntil: 'networkidle2' });
+                  
+                  // Wait for form to be ready
+                  await page.waitForSelector('form', { timeout: 30000 });
+                  
+                  // Fill in the credit card field
+                  await page.type('input[name="CCNumber"]', creditCard);
+                  
+                  // Fill in the voucher code field
+                  await page.type('input[name="VoucherCode"]', voucherCode);
+                  
+                  // Select destination
+                  await page.select('select[name="amex_dest_select"]', destination);
+                  
+                  // Wait for hotels to load based on destination
+                  await page.waitForTimeout(4000);
+                  
+                  // Wait for hotel option to be available
+                  await page.waitForSelector('select[name="amex_select"] option[value="' + hotel + '"]', { timeout: 5000 });
+                  
+                  // Select hotel
+                  await page.select('select[name="amex_select"]', hotel);
+                  
+                  // Clear and set arrival date
+                  await page.click('input[name="arrivalDate"]');
+                  await page.keyboard.down('Control');
+                  await page.keyboard.press('KeyA');
+                  await page.keyboard.up('Control');
+                  await page.type('input[name="arrivalDate"]', arrivalDate);
+                  
+                  // Check the "Go" checkbox
+                  await page.click('input[name="Go"]');
+                  
+                  // Wait before submitting
+                  await page.waitForTimeout(1000);
+                  
+                  // Submit the form
+                  await page.click('input[type="submit"]');
+                  
+                  // Wait for redirect to complete
+                  await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 });
+                  
+                  // Return the final URL
+                  return {
+                    url: page.url(),
+                    success: true
+                  };
+                } catch (error) {
+                  return {
+                    url: page.url(),
+                    success: false,
+                    error: error.message
+                  };
+                }
               }
-            ]
+            `,
+            context: cleanedParams
           })
         })
         
@@ -191,7 +165,12 @@ serve(async (req) => {
         } else {
           // Success! Process the response
           const browserlessData = await browserlessResponse.json()
-          console.log(`Attempt ${attempt}: Browserless response URL:`, browserlessData.url)
+          console.log(`Attempt ${attempt}: Browserless function result:`, browserlessData)
+
+          // Check if the function executed successfully
+          if (!browserlessData.success) {
+            throw new Error(`Browser automation failed: ${browserlessData.error || 'Unknown error'}`)
+          }
 
           // Extract groupCode from the final URL
           if (!browserlessData.url || !browserlessData.url.includes('hilton.com')) {
