@@ -72,7 +72,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             code: `
-              module.exports = async ({ page, context }) => {
+              export default async ({ page, context }) => {
                 const { creditCard, voucherCode, destination, hotel, arrivalDate } = context;
                 console.log('Starting automation with params:', { creditCard, voucherCode, destination, hotel, arrivalDate });
                 
