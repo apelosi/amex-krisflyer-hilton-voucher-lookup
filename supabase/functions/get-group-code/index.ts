@@ -64,101 +64,108 @@ serve(async (req) => {
         console.log(`Attempt ${attempt}/${maxRetries}: Starting Browserless automation...`);
         
         // Submit form to AMEX KrisFlyer page to get the groupCode using puppeteer automation
-        const browserlessResponse = await fetch(`https://production-sfo.browserless.io/content?token=${browserlessApiKey}`, {
+        const browserlessResponse = await fetch(`https://production-sfo.browserless.io/function?token=${browserlessApiKey}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Cache-Control': 'no-cache',
           },
           body: JSON.stringify({
-            url: 'https://apac.hilton.com/amexkrisflyer',
-            waitForSelector: {
-              selector: 'form#cc_form',
-              timeout: 30000
-            },
-            actions: [
-              {
-                type: 'type',
-                selector: 'input[name="bin_number"]',
-                text: cleanedParams.creditCard
-              },
-              {
-                type: 'type', 
-                selector: 'input[name="voucher_no"]',
-                text: cleanedParams.voucherCode
-              },
-              {
-                type: 'wait',
-                timeout: 1000
-              },
-              {
-                type: 'click',
-                selector: 'input[name="btn-go"]'
-              },
-              {
-                type: 'wait',
-                timeout: 3000
-              },
-              {
-                type: 'waitForSelector',
-                selector: 'select[name="amex_dest_select"]',
-                timeout: 10000
-              },
-              {
-                type: 'select',
-                selector: 'select[name="amex_dest_select"]',
-                value: cleanedParams.destination
-              },
-              {
-                type: 'wait',
-                timeout: 2000
-              },
-              {
-                type: 'waitForSelector',
-                selector: `select[name="amex_select"] option[value="${cleanedParams.hotel}"]`,
-                timeout: 10000
-              },
-              {
-                type: 'select',
-                selector: 'select[name="amex_select"]',
-                value: cleanedParams.hotel
-              },
-              {
-                type: 'click',
-                selector: 'button#arrival-btn'
-              },
-              {
-                type: 'wait',
-                timeout: 1000
-              },
-              {
-                type: 'evaluate',
-                pageFunction: `(arrivalDate) => {
-                  const arrivalInput = document.querySelector('input[name="arrival"]');
-                  if (arrivalInput) {
-                    arrivalInput.value = arrivalDate;
-                    arrivalInput.dispatchEvent(new Event('change', { bubbles: true }));
-                  }
-                }`,
-                args: [cleanedParams.arrivalDate]
-              },
-              {
-                type: 'click',
-                selector: 'input[name="agree"]'
-              },
-              {
-                type: 'wait',
-                timeout: 1000
-              },
-              {
-                type: 'click',
-                selector: 'input#gobtn'
-              },
-              {
-                type: 'waitForNavigation',
-                timeout: 15000
-              }
-            ]
+            code: `
+              module.exports = async ({ page, context: { creditCard, voucherCode, destination, hotel, arrivalDate } }) => {
+                console.log('Starting automation with params:', { creditCard, voucherCode, destination, hotel, arrivalDate });
+                
+                try {
+                  // Navigate to the AMEX KrisFlyer page
+                  await page.goto('https://apac.hilton.com/amexkrisflyer', { waitUntil: 'networkidle2', timeout: 30000 });
+                  console.log('Page loaded successfully');
+                  
+                  // Wait for the form to be available
+                  await page.waitForSelector('form#cc_form', { timeout: 30000 });
+                  console.log('Form found');
+                  
+                  // Fill in credit card number
+                  await page.type('input[name="bin_number"]', creditCard);
+                  console.log('Credit card filled');
+                  
+                  // Fill in voucher code
+                  await page.type('input[name="voucher_no"]', voucherCode);
+                  console.log('Voucher code filled');
+                  
+                  // Click the "Go" button to proceed to second stage
+                  await page.click('input[name="btn-go"]');
+                  console.log('Go button clicked');
+                  
+                  // Wait for second stage form to load
+                  await page.waitForSelector('select[name="amex_dest_select"]', { timeout: 15000 });
+                  console.log('Second stage form loaded');
+                  
+                  // Select destination
+                  await page.select('select[name="amex_dest_select"]', destination);
+                  console.log('Destination selected:', destination);
+                  
+                  // Wait for hotel options to load
+                  await page.waitForTimeout(2000);
+                  await page.waitForSelector('select[name="amex_select"] option[value="' + hotel + '"]', { timeout: 10000 });
+                  console.log('Hotel options loaded');
+                  
+                  // Select hotel
+                  await page.select('select[name="amex_select"]', hotel);
+                  console.log('Hotel selected:', hotel);
+                  
+                  // Click arrival date button
+                  await page.click('button#arrival-btn');
+                  console.log('Arrival date button clicked');
+                  
+                  // Wait for date input to be available
+                  await page.waitForTimeout(1000);
+                  
+                  // Set arrival date using evaluate
+                  await page.evaluate((arrivalDate) => {
+                    const arrivalInput = document.querySelector('input[name="arrival"]');
+                    if (arrivalInput) {
+                      arrivalInput.value = arrivalDate;
+                      arrivalInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                  }, arrivalDate);
+                  console.log('Arrival date set:', arrivalDate);
+                  
+                  // Check the agreement checkbox
+                  await page.click('input[name="agree"]');
+                  console.log('Agreement checkbox checked');
+                  
+                  // Wait before final submission
+                  await page.waitForTimeout(1000);
+                  
+                  // Click final submit button and wait for navigation
+                  await Promise.all([
+                    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 }),
+                    page.click('input#gobtn')
+                  ]);
+                  console.log('Final submission completed');
+                  
+                  // Get the final URL
+                  const finalUrl = page.url();
+                  console.log('Final URL:', finalUrl);
+                  
+                  return {
+                    success: true,
+                    finalUrl: finalUrl,
+                    timestamp: new Date().toISOString()
+                  };
+                  
+                } catch (error) {
+                  console.error('Automation error:', error.message);
+                  return {
+                    success: false,
+                    error: error.message,
+                    currentUrl: page.url(),
+                    timestamp: new Date().toISOString()
+                  };
+                }
+              };
+            `,
+            context: cleanedParams
           })
         })
         
@@ -190,10 +197,15 @@ serve(async (req) => {
         } else {
           // Success! Process the response
           const browserlessData = await browserlessResponse.json()
-          console.log(`Attempt ${attempt}: Browserless content result:`, browserlessData)
+          console.log(`Attempt ${attempt}: Browserless function result:`, browserlessData)
 
-          // For /content endpoint, get the final URL from the response
-          const finalUrl = browserlessData.url || browserlessData.data?.url
+          // Check if the automation was successful
+          if (!browserlessData.success) {
+            throw new Error(`Automation failed: ${browserlessData.error || 'Unknown error'}`)
+          }
+
+          // For /function endpoint, get the final URL from the automation result
+          const finalUrl = browserlessData.finalUrl
           console.log(`Attempt ${attempt}: Final URL from Browserless:`, finalUrl)
 
           // Extract groupCode from the final URL
@@ -214,7 +226,8 @@ serve(async (req) => {
               success: true, 
               groupCode,
               finalUrl: finalUrl,
-              attempt: attempt
+              attempt: attempt,
+              timestamp: browserlessData.timestamp
             }),
             { 
               headers: { 
