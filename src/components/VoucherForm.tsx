@@ -228,7 +228,7 @@ export function VoucherForm() {
                 <Calendar className="h-4 w-4 text-primary" />
                 Voucher Expiry Date
               </Label>
-              <Input id="voucherExpiry" type="date" value={voucherExpiry} onChange={e => setVoucherExpiry(e.target.value)} min={new Date().toISOString().split('T')[0]} />
+              <Input id="voucherExpiry" name="voucherExpiry" type="date" value={voucherExpiry} onChange={e => setVoucherExpiry(e.target.value)} min={new Date().toISOString().split('T')[0]} />
               <p className="text-xs text-muted-foreground">
                 We'll check availability from today through when your voucher expires
               </p>
