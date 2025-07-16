@@ -200,6 +200,15 @@ serve(async (req) => {
             throw new Error('Browserless API authentication failed - check API key')
           } else if (browserlessResponse.status === 403) {
             throw new Error('Browserless API access forbidden - check API key permissions')
+          } else if (browserlessResponse.status === 429) {
+            // Rate limiting - retry with longer delays
+            lastError = new Error(`Browserless API rate limited: ${errorText.substring(0, 200)}`)
+            if (attempt < maxRetries) {
+              const delay = Math.min(attempt * 5000, 15000) // 5s, 10s, 15s max
+              console.log(`Attempt ${attempt} failed with rate limit, retrying in ${delay / 1000} seconds...`)
+              await new Promise(resolve => setTimeout(resolve, delay))
+              continue
+            }
           } else if (browserlessResponse.status >= 500) {
             // Server errors - we should retry these
             lastError = new Error(`Browserless verification service returned ${browserlessResponse.status}: ${errorText.substring(0, 200)}`)
