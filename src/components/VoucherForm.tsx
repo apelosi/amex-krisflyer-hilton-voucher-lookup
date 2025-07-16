@@ -141,12 +141,20 @@ export function VoucherForm() {
     try {
       // First, get the dynamic groupCode
       console.log('Getting dynamic groupCode...');
+      
+      // Get hotel code from the selected hotel name
+      const hotelCode = hotel && hotelData.hotelCodes[hotel] ? hotelData.hotelCodes[hotel] : null;
+      
+      if (!hotelCode) {
+        throw new Error(`Hotel code not found for selected hotel: ${hotel}`);
+      }
+      
       const { data: groupCodeData, error: groupCodeError } = await supabase.functions.invoke('get-group-code', {
         body: {
           creditCard,
           voucherCode,
           destination,
-          hotel,
+          hotel: hotelCode, // Pass hotel code instead of hotel name
           arrivalDate: new Date().toISOString().split('T')[0]
         }
       });

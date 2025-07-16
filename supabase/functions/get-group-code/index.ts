@@ -72,7 +72,8 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             code: `
-              module.exports = async ({ page, context: { creditCard, voucherCode, destination, hotel, arrivalDate } }) => {
+              module.exports = async ({ page, context }) => {
+                const { creditCard, voucherCode, destination, hotel, arrivalDate } = context;
                 console.log('Starting automation with params:', { creditCard, voucherCode, destination, hotel, arrivalDate });
                 
                 try {
@@ -100,16 +101,33 @@ serve(async (req) => {
                   await page.waitForSelector('select[name="amex_dest_select"]', { timeout: 15000 });
                   console.log('Second stage form loaded');
                   
-                  // Select destination
-                  await page.select('select[name="amex_dest_select"]', destination);
+                  // Select destination - need to find the correct option value
+                  const destinationOptions = await page.$$eval('select[name="amex_dest_select"] option', options => 
+                    options.map(option => ({ value: option.value, text: option.textContent.trim() }))
+                  );
+                  console.log('Available destinations:', destinationOptions);
+                  
+                  // Find the correct destination option
+                  const destinationOption = destinationOptions.find(opt => opt.text === destination);
+                  if (!destinationOption) {
+                    throw new Error('Destination not found: ' + destination);
+                  }
+                  
+                  await page.select('select[name="amex_dest_select"]', destinationOption.value);
                   console.log('Destination selected:', destination);
                   
                   // Wait for hotel options to load
-                  await page.waitForTimeout(2000);
-                  await page.waitForSelector('select[name="amex_select"] option[value="' + hotel + '"]', { timeout: 10000 });
+                  await page.waitForTimeout(3000);
+                  await page.waitForSelector('select[name="amex_select"] option[value!=""]', { timeout: 10000 });
                   console.log('Hotel options loaded');
                   
-                  // Select hotel
+                  // Get all hotel options
+                  const hotelOptions = await page.$$eval('select[name="amex_select"] option', options => 
+                    options.map(option => ({ value: option.value, text: option.textContent.trim() }))
+                  );
+                  console.log('Available hotels:', hotelOptions);
+                  
+                  // Select hotel using the hotel code
                   await page.select('select[name="amex_select"]', hotel);
                   console.log('Hotel selected:', hotel);
                   
