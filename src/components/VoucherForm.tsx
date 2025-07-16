@@ -40,6 +40,7 @@ export function VoucherForm() {
     success: false
   });
   const [isLoadingHotelData, setIsLoadingHotelData] = useState(true);
+  const [error, setError] = useState<string>("");
   
   const {
     toast
@@ -127,12 +128,9 @@ export function VoucherForm() {
   };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(""); // Clear any previous errors
     if (!isFormValid) {
-      toast({
-        title: "Form Incomplete",
-        description: "Please fill in all required fields.",
-        variant: "destructive"
-      });
+      setError("Please fill in all required fields.");
       return;
     }
     setIsLoading(true);
@@ -187,25 +185,19 @@ export function VoucherForm() {
       console.error('Availability check error:', error);
       
       // Provide user-friendly error messages with guidance
-      let title = "Verification Failed";
-      let description = "We couldn't verify your voucher details. ";
+      let errorMessage = "We couldn't verify your voucher details. ";
       
       if (error.message?.includes('voucher details') || error.message?.includes('AMEX KrisFlyer')) {
-        description += "Please double-check your voucher code and credit card number (first 6 digits). If the issue persists, please contact support at https://vibez.ventures for assistance.";
+        errorMessage += "Please double-check your voucher code and credit card number (first 6 digits). If the issue persists, please contact support for assistance.";
       } else if (error.message?.includes('groupCode') || error.message?.includes('booking URL')) {
-        description += "There was an issue processing your voucher. Please verify your information is correct or contact support at https://vibez.ventures.";
+        errorMessage += "There was an issue processing your voucher. Please verify your information is correct or contact support.";
       } else if (error.message?.includes('availability')) {
-        title = "Availability Check Failed";
-        description = "We couldn't check room availability at this time. Please try again in a few minutes or contact support at https://vibez.ventures.";
+        errorMessage = "We couldn't check room availability at this time. Please try again in a few minutes or contact support.";
       } else {
-        description += "Please check your information and try again. If the problem continues, contact support at https://vibez.ventures.";
+        errorMessage += "Please check your information and try again. If the problem continues, contact support.";
       }
       
-      toast({
-        title,
-        description,
-        variant: "destructive"
-      });
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -324,6 +316,31 @@ export function VoucherForm() {
                   Check Availability
                 </>}
             </Button>
+            
+            {/* Error message display */}
+            {error && (
+              <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <p className="text-sm text-destructive">
+                  {error.includes('contact support') ? (
+                    <>
+                      {error.split('contact support')[0]}
+                      contact{' '}
+                      <a 
+                        href="https://vibez.ventures" 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-destructive underline hover:no-underline font-medium"
+                      >
+                        Vibez Ventures
+                      </a>
+                      {error.includes('for assistance') ? ' for assistance' : ''}.
+                    </>
+                  ) : (
+                    error
+                  )}
+                </p>
+              </div>
+            )}
           </form>
         </CardContent>
       </Card>
