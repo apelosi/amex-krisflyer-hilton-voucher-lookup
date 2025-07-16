@@ -97,15 +97,17 @@ serve(async (req) => {
     console.log('Browserless response URL:', browserlessData.url)
 
     // Extract groupCode from the final URL
-    let groupCode = 'AMEXKF' // fallback
-    if (browserlessData.url && browserlessData.url.includes('hilton.com')) {
-      const url = new URL(browserlessData.url)
-      const urlGroupCode = url.searchParams.get('groupCode')
-      if (urlGroupCode) {
-        groupCode = urlGroupCode
-        console.log('Extracted groupCode:', groupCode)
-      }
+    if (!browserlessData.url || !browserlessData.url.includes('hilton.com')) {
+      throw new Error('Failed to redirect to Hilton booking page - check your voucher details')
     }
+    
+    const url = new URL(browserlessData.url)
+    const groupCode = url.searchParams.get('groupCode')
+    if (!groupCode) {
+      throw new Error('Could not extract groupCode from booking URL - voucher may be invalid')
+    }
+    
+    console.log('Extracted groupCode:', groupCode)
 
     return new Response(
       JSON.stringify({ 
@@ -126,8 +128,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message,
-        groupCode: 'AMEXKF' // fallback
+        error: error.message
       }),
       { 
         headers: { 

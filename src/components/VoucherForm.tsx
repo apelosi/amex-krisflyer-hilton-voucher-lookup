@@ -149,13 +149,12 @@ export function VoucherForm() {
         }
       });
 
-      let dynamicGroupCode = 'AMEXKF'; // fallback
-      if (groupCodeData && groupCodeData.success && groupCodeData.groupCode) {
-        dynamicGroupCode = groupCodeData.groupCode;
-        console.log('Successfully got dynamic groupCode:', dynamicGroupCode);
-      } else {
-        console.warn('Failed to get dynamic groupCode, using fallback:', groupCodeError);
+      if (groupCodeError || !groupCodeData?.success) {
+        throw new Error(groupCodeData?.error || 'Failed to validate voucher details with AMEX KrisFlyer. Please check your voucher code and credit card number.');
       }
+
+      const dynamicGroupCode = groupCodeData.groupCode;
+      console.log('Successfully got dynamic groupCode:', dynamicGroupCode);
 
       // Call our Supabase Edge Function to check real availability
       const { data, error } = await supabase.functions.invoke('check-hotel-availability', {
