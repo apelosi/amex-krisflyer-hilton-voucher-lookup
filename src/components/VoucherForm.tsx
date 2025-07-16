@@ -21,6 +21,7 @@ interface AvailabilityResult {
   available: boolean;
   roomCount?: number;
   bookingUrl?: string;
+  groupCode?: string;
 }
 export function VoucherForm() {
   const [creditCard, setCreditCard] = useState("");
@@ -99,25 +100,25 @@ export function VoucherForm() {
 
   const getBookingUrl = (result: AvailabilityResult) => {
     // Use the real booking URL from the browser automation result if available
-    return result.bookingUrl || generateBookingUrl(result.date);
+    return result.bookingUrl || generateBookingUrl(result.date, result.groupCode);
   };
 
 
-  const generateBookingUrl = (date: string) => {
+  const generateBookingUrl = (date: string, groupCode: string = 'AMEXKF') => {
     // Generate booking URL with real AMEX KrisFlyer parameters
     const arrivalDate = date;
     const departureDate = new Date(date);
     departureDate.setDate(departureDate.getDate() + 1);
     const departureDateStr = departureDate.toISOString().split('T')[0];
     
-    // Get the hotel code from the dynamic data
-    const hotelCode = hotelData.hotelCodes[hotel] || hotel.slice(0, 5).toUpperCase().replace(/[^A-Z]/g, '');
+    // Get the hotel code from the dynamic data - this should be the actual hotelCode for the selected hotel
+    const hotelCode = hotel && hotelData.hotelCodes[hotel] ? hotelData.hotelCodes[hotel] : 'SINSG';
     
     const params = new URLSearchParams({
       ctyhocn: hotelCode,
       arrivalDate: arrivalDate,
       departureDate: departureDateStr,
-      groupCode: 'AMEXKF',
+      groupCode: groupCode,
       room1NumAdults: '1',
       cid: 'OH,MB,APACAMEXKrisFlyerComplimentaryNight,MULTIBR,OfferCTA,Offer,Book'
     });
@@ -136,6 +137,26 @@ export function VoucherForm() {
     }
     setIsLoading(true);
     try {
+      // First, get the dynamic groupCode
+      console.log('Getting dynamic groupCode...');
+      const { data: groupCodeData, error: groupCodeError } = await supabase.functions.invoke('get-group-code', {
+        body: {
+          creditCard,
+          voucherCode,
+          destination,
+          hotel,
+          arrivalDate: new Date().toISOString().split('T')[0]
+        }
+      });
+
+      let dynamicGroupCode = 'AMEXKF'; // fallback
+      if (groupCodeData && groupCodeData.success && groupCodeData.groupCode) {
+        dynamicGroupCode = groupCodeData.groupCode;
+        console.log('Successfully got dynamic groupCode:', dynamicGroupCode);
+      } else {
+        console.warn('Failed to get dynamic groupCode, using fallback:', groupCodeError);
+      }
+
       // Call our Supabase Edge Function to check real availability
       const { data, error } = await supabase.functions.invoke('check-hotel-availability', {
         body: {
@@ -144,7 +165,8 @@ export function VoucherForm() {
           destination,
           hotel,
           arrivalDate: new Date().toISOString().split('T')[0], // Start from today
-          voucherExpiry
+          voucherExpiry,
+          groupCode: dynamicGroupCode
         }
       });
 
