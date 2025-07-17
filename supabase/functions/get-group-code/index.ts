@@ -130,7 +130,7 @@ serve(async (req) => {
                     } catch (e) {
                       // Element not ready yet, continue polling
                     }
-                    await page.waitForTimeout(100);
+                    await new Promise(resolve => setTimeout(resolve, 100));
                   }
                   
                   if (!hotelOptionsAvailable) {
@@ -165,7 +165,7 @@ serve(async (req) => {
                     } catch (e) {
                       // Continue polling
                     }
-                    await page.waitForTimeout(100);
+                    await new Promise(resolve => setTimeout(resolve, 100));
                   }
                   
                   if (!dateInputReady) {
