@@ -77,12 +77,12 @@ serve(async (req) => {
                 console.log('Starting automation with params:', { creditCard, voucherCode, destination, hotel, arrivalDate });
                 
                 try {
-                  // Navigate to the AMEX KrisFlyer page
-                  await page.goto('https://apac.hilton.com/amexkrisflyer', { waitUntil: 'networkidle2', timeout: 30000 });
+                  // Navigate to the AMEX KrisFlyer page with increased timeout
+                  await page.goto('https://apac.hilton.com/amexkrisflyer', { waitUntil: 'domcontentloaded', timeout: 60000 });
                   console.log('Page loaded successfully');
                   
-                  // Wait for the form to be available
-                  await page.waitForSelector('form#cc_form', { timeout: 30000 });
+                  // Wait for the form to be available with increased timeout
+                  await page.waitForSelector('form#cc_form', { timeout: 45000 });
                   console.log('Form found');
                   
                   // Fill in credit card number
@@ -97,8 +97,8 @@ serve(async (req) => {
                   await page.click('input[name="btn-go"]');
                   console.log('Go button clicked');
                   
-                  // Wait for second stage form to load
-                  await page.waitForSelector('select[name="amex_dest_select"]', { timeout: 15000 });
+                  // Wait for second stage form to load with increased timeout
+                  await page.waitForSelector('select[name="amex_dest_select"]', { timeout: 30000 });
                   console.log('Second stage form loaded');
                   
                   // Select destination - need to find the correct option value
@@ -116,9 +116,9 @@ serve(async (req) => {
                   await page.select('select[name="amex_dest_select"]', destinationOption.value);
                   console.log('Destination selected:', destination);
                   
-                  // Wait for hotel options to load
-                  await page.waitForTimeout(3000);
-                  await page.waitForSelector('select[name="amex_select"] option[value!=""]', { timeout: 10000 });
+                  // Wait for hotel options to load with increased timeout
+                  await page.waitForTimeout(2000);
+                  await page.waitForSelector('select[name="amex_select"] option[value!=""]', { timeout: 20000 });
                   console.log('Hotel options loaded');
                   
                   // Get all hotel options
@@ -155,9 +155,9 @@ serve(async (req) => {
                   // Wait before final submission
                   await page.waitForTimeout(1000);
                   
-                  // Click final submit button and wait for navigation
+                  // Click final submit button and wait for navigation with increased timeout
                   await Promise.all([
-                    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 }),
+                    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 45000 }),
                     page.click('input#gobtn')
                   ]);
                   console.log('Final submission completed');
