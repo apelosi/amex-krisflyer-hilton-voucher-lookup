@@ -77,31 +77,30 @@ serve(async (req) => {
                 console.log('Starting automation with params:', { creditCard, voucherCode, destination, hotel, arrivalDate });
                 
                 try {
-                  // Navigate to the AMEX KrisFlyer page with increased timeout
-                  await page.goto('https://apac.hilton.com/amexkrisflyer', { waitUntil: 'domcontentloaded', timeout: 60000 });
+                  // Navigate to the AMEX KrisFlyer page (8s timeout)
+                  await page.goto('https://apac.hilton.com/amexkrisflyer', { waitUntil: 'domcontentloaded', timeout: 8000 });
                   console.log('Page loaded successfully');
                   
-                  // Wait for the form to be available with increased timeout
-                  await page.waitForSelector('form#cc_form', { timeout: 45000 });
+                  // Wait for the form to be available (5s timeout)
+                  await page.waitForSelector('form#cc_form', { timeout: 5000 });
                   console.log('Form found');
                   
-                  // Fill in credit card number
-                  await page.type('input[name="bin_number"]', creditCard);
-                  console.log('Credit card filled');
-                  
-                  // Fill in voucher code
-                  await page.type('input[name="voucher_no"]', voucherCode);
-                  console.log('Voucher code filled');
+                  // Fill in credit card number and voucher code simultaneously
+                  await Promise.all([
+                    page.type('input[name="bin_number"]', creditCard),
+                    page.type('input[name="voucher_no"]', voucherCode)
+                  ]);
+                  console.log('Credit card and voucher filled');
                   
                   // Click the "Go" button to proceed to second stage
                   await page.click('input[name="btn-go"]');
                   console.log('Go button clicked');
                   
-                  // Wait for second stage form to load with increased timeout
-                  await page.waitForSelector('select[name="amex_dest_select"]', { timeout: 30000 });
+                  // Wait for second stage form to load (5s timeout)
+                  await page.waitForSelector('select[name="amex_dest_select"]', { timeout: 5000 });
                   console.log('Second stage form loaded');
                   
-                  // Select destination - need to find the correct option value
+                  // Select destination - get options and select in one go
                   const destinationOptions = await page.$$eval('select[name="amex_dest_select"] option', options => 
                     options.map(option => ({ value: option.value, text: option.textContent.trim() }))
                   );
@@ -116,9 +115,28 @@ serve(async (req) => {
                   await page.select('select[name="amex_dest_select"]', destinationOption.value);
                   console.log('Destination selected:', destination);
                   
-                  // Wait for hotel options to load with increased timeout
-                  await page.waitForTimeout(2000);
-                  await page.waitForSelector('select[name="amex_select"] option[value!=""]', { timeout: 20000 });
+                  // Smart polling for hotel options instead of fixed delay
+                  console.log('Polling for hotel options...');
+                  let hotelOptionsAvailable = false;
+                  const maxPollAttempts = 30; // 3 seconds max (100ms intervals)
+                  
+                  for (let i = 0; i < maxPollAttempts; i++) {
+                    try {
+                      const hotelOptions = await page.$$eval('select[name="amex_select"] option[value!=""]', options => options.length);
+                      if (hotelOptions > 0) {
+                        hotelOptionsAvailable = true;
+                        break;
+                      }
+                    } catch (e) {
+                      // Element not ready yet, continue polling
+                    }
+                    await page.waitForTimeout(100);
+                  }
+                  
+                  if (!hotelOptionsAvailable) {
+                    throw new Error('Hotel options failed to load within 3 seconds');
+                  }
+                  
                   console.log('Hotel options loaded');
                   
                   // Get all hotel options
@@ -131,12 +149,28 @@ serve(async (req) => {
                   await page.select('select[name="amex_select"]', hotel);
                   console.log('Hotel selected:', hotel);
                   
-                  // Click arrival date button
+                  // Click arrival date button and set date immediately
                   await page.click('button#arrival-btn');
                   console.log('Arrival date button clicked');
                   
-                  // Wait for date input to be available
-                  await page.waitForTimeout(1000);
+                  // Poll for date input availability (max 1 second)
+                  let dateInputReady = false;
+                  for (let i = 0; i < 10; i++) {
+                    try {
+                      const dateInput = await page.$('input[name="arrival"]');
+                      if (dateInput) {
+                        dateInputReady = true;
+                        break;
+                      }
+                    } catch (e) {
+                      // Continue polling
+                    }
+                    await page.waitForTimeout(100);
+                  }
+                  
+                  if (!dateInputReady) {
+                    throw new Error('Date input failed to appear within 1 second');
+                  }
                   
                   // Set arrival date using evaluate
                   await page.evaluate((arrivalDate) => {
@@ -152,12 +186,9 @@ serve(async (req) => {
                   await page.click('input[name="agree"]');
                   console.log('Agreement checkbox checked');
                   
-                  // Wait before final submission
-                  await page.waitForTimeout(1000);
-                  
-                  // Click final submit button and wait for navigation with increased timeout
+                  // Click final submit button and wait for navigation (5s timeout)
                   await Promise.all([
-                    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 45000 }),
+                    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 5000 }),
                     page.click('input#gobtn')
                   ]);
                   console.log('Final submission completed');
