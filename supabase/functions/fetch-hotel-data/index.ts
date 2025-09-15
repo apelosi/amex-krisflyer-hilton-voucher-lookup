@@ -73,8 +73,8 @@ serve(async (req) => {
     }
 
     // Build data structures
-    const hotels = hotelData.map(hotel => hotel.name);
-    const hotelCodes: Record<string, string> = {};
+    const hotelNames = hotelData.map(hotel => hotel.name);
+    const hotels: Record<string, string> = {}; // hotel code -> hotel name mapping
     const hotelsByDestination: Record<string, string[]> = {};
     
     // Initialize destination arrays
@@ -84,7 +84,7 @@ serve(async (req) => {
     
     // Process hotel data
     hotelData.forEach(hotel => {
-      hotelCodes[hotel.name] = hotel.ctyhocn;
+      hotels[hotel.ctyhocn] = hotel.name; // hotel code as key, hotel name as value
       if (hotel.destination && hotelsByDestination[hotel.destination]) {
         hotelsByDestination[hotel.destination].push(hotel.name);
       }
@@ -93,9 +93,9 @@ serve(async (req) => {
     const result = {
       success: true,
       destinations,
-      hotels,
+      hotels: hotelNames, // Array of hotel names for backward compatibility
       hotelsByDestination,
-      hotelCodes
+      hotelCodes: hotels // The mapping object (hotel code -> hotel name)
     };
 
     console.log('Function completed successfully, returning:', {
