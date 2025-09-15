@@ -139,8 +139,9 @@ export function VoucherForm() {
     }
     setIsLoading(true);
     try {
-      // First, get the dynamic groupCode
-      console.log('Getting dynamic groupCode...');
+      // Use hardcoded group code for now
+      const dynamicGroupCode = "ZKFA25";
+      console.log('Using hardcoded groupCode:', dynamicGroupCode);
       
       // Get hotel code from the selected hotel name
       const hotelCode = hotel && hotelData.hotelCodes[hotel] ? hotelData.hotelCodes[hotel] : null;
@@ -148,23 +149,6 @@ export function VoucherForm() {
       if (!hotelCode) {
         throw new Error(`Hotel code not found for selected hotel: ${hotel}`);
       }
-      
-      const { data: groupCodeData, error: groupCodeError } = await supabase.functions.invoke('get-group-code', {
-        body: {
-          creditCard,
-          voucherCode,
-          destination,
-          hotel: hotelCode, // Pass hotel code instead of hotel name
-          arrivalDate: new Date().toISOString().split('T')[0]
-        }
-      });
-
-      if (groupCodeError || !groupCodeData?.success) {
-        throw new Error(groupCodeData?.error || 'Failed to validate voucher details with AMEX KrisFlyer. Please check your voucher code and credit card number.');
-      }
-
-      const dynamicGroupCode = groupCodeData.groupCode;
-      console.log('Successfully got dynamic groupCode:', dynamicGroupCode);
 
       // Call our Supabase Edge Function to check real availability
       const { data, error } = await supabase.functions.invoke('check-hotel-availability', {
