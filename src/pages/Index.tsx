@@ -1,5 +1,5 @@
 import { VoucherForm } from "@/components/VoucherForm";
-import { TestGroupCode } from "@/components/TestGroupCode";
+
 import heroImage from "@/assets/hero-travel.jpg";
 import { Building, Shield, Clock } from "lucide-react";
 const Index = () => {
@@ -62,10 +62,6 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Test Component */}
-          <div className="mb-8">
-            <TestGroupCode />
-          </div>
 
           {/* Voucher Form */}
           <VoucherForm />
