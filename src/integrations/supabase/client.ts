@@ -1,10 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Import the Supabase credentials from environment variables to avoid
-// committing secrets to the repository.
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY!;
+// Supabase project configuration
+const SUPABASE_URL = 'https://ynlnrvuqypmwpevabtdc.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlubG5ydnVxeXBtd3BldmFidGRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1NzM0NjQsImV4cCI6MjA2ODE0OTQ2NH0.dvRTW9S7ZRCcjYJgEx-Adw1QnRV2Gv6jqCpAhPt-qoE';
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
