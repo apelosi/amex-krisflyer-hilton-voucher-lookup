@@ -144,6 +144,26 @@ export function VoucherForm() {
     }
     setIsLoading(true);
     try {
+      // Step 1: Validate voucher first
+      console.log('Validating voucher:', { creditCard, voucherCode });
+      const { data: validationData, error: validationError } = await supabase.functions.invoke('validate-voucher', {
+        body: {
+          creditCard,
+          voucherCode
+        }
+      });
+
+      if (validationError) {
+        throw new Error(`Voucher validation failed: ${validationError.message}`);
+      }
+
+      if (!validationData.success || !validationData.valid) {
+        throw new Error(validationData.error || 'Invalid voucher details. Please check your credit card number and voucher code.');
+      }
+
+      console.log('Voucher validation successful, proceeding with hotel availability check...');
+
+      // Step 2: If voucher is valid, check hotel availability
       // Use hardcoded group code for now
       const dynamicGroupCode = "ZKFA25";
       console.log('Using hardcoded groupCode:', dynamicGroupCode);

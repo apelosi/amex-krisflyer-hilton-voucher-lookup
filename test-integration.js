@@ -84,15 +84,35 @@ const VOUCHER_VALIDATION_TESTS = [
     expected: {
       valid: false
     }
-  }
+  },
   {
-  name: "Voucher Test 4: Valid voucher code - Expected TRUE",
+    name: "Voucher Test 4: Valid voucher code - Expected TRUE",
     input: {
       creditCard: "379875",
       voucherCode: "J526224GBZ"
     },
     expected: {
       valid: true
+    }
+  },
+  {
+    name: "Voucher Test 5: Invalid credit card - Expected FALSE",
+    input: {
+      creditCard: "379575",
+      voucherCode: "J526224GBZ"
+    },
+    expected: {
+      valid: false
+    }
+  },
+  {
+    name: "Voucher Test 6: Invalid voucher code - Expected FALSE",
+    input: {
+      creditCard: "379875",
+      voucherCode: "J526234GBZ"
+    },
+    expected: {
+      valid: false
     }
   }
 ];
