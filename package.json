@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:integration": "node test-integration.js",
+    "test:integration-complete": "node test-integration-complete.js",
     "test:deploy": "supabase functions deploy test-hotel-availability && npm run test:integration"
   },
   "dependencies": {

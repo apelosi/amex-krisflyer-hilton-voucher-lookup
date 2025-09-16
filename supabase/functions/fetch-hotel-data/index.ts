@@ -13,38 +13,40 @@ serve(async (req) => {
 
   try {
     console.log('Starting fetch-hotel-data function...');
-    
-    const browserlessApiKey = Deno.env.get('BROWSERLESS_API_KEY');
-    console.log('API key available:', !!browserlessApiKey);
-    console.log('API key first 10 chars:', browserlessApiKey?.substring(0, 10) || 'undefined');
-    console.log('API key last 4 chars:', browserlessApiKey?.substring(-4) || 'undefined');
-    console.log('Full API key value:', browserlessApiKey || 'undefined');
-    
-    if (!browserlessApiKey) {
-      console.error('BROWSERLESS_API_KEY environment variable not found');
-      throw new Error('BROWSERLESS_API_KEY is not configured');
+
+    const scraperApiKey = Deno.env.get('SCRAPERAPI_KEY');
+    if (!scraperApiKey) {
+      console.error('SCRAPERAPI_KEY environment variable not found');
+      throw new Error('SCRAPERAPI_KEY is not configured');
     }
 
-    console.log('Making request to Browserless API...');
-    
-    // Use the correct Browserless API endpoint and authentication
-    const response = await fetch(`https://production-sfo.browserless.io/content?token=${browserlessApiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-      },
-      body: JSON.stringify({
-        url: 'https://apac.hilton.com/amexkrisflyer'
-      }),
+    console.log('Making request to ScraperAPI...');
+
+    const verificationUrl = 'https://apac.hilton.com/amexkrisflyer';
+    const params = new URLSearchParams({
+      'api_key': scraperApiKey,
+      'url': verificationUrl,
+      'render': 'true',
+      'country_code': 'sg',
+      'session_number': '1',
+      'wait': '3000',
+      'premium': 'true'
     });
 
-    console.log('Browserless API response status:', response.status);
-    
+    const scraperUrl = `https://api.scraperapi.com/?${params.toString()}`;
+    const response = await fetch(scraperUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+
+    console.log('ScraperAPI response status:', response.status);
+
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Browserless API error response:', errorText);
-      throw new Error(`Browserless API failed with status ${response.status}: ${errorText}`);
+      console.error('ScraperAPI error response:', errorText);
+      throw new Error(`ScraperAPI failed with status ${response.status}: ${errorText}`);
     }
 
     const htmlContent = await response.text();
@@ -100,7 +102,7 @@ serve(async (req) => {
 
     console.log('Function completed successfully, returning:', {
       destinationCount: destinations.length,
-      hotelCount: hotels.length,
+      hotelCount: hotelNames.length,
       mappingCount: Object.keys(hotelsByDestination).length
     });
 

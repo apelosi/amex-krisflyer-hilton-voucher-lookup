@@ -17,13 +17,13 @@ const TEST_CONFIG = {
   functionName: 'test-hotel-availability'
 };
 
-// Test cases
-const TEST_CASES = [
+// Test cases for check-hotel-availability
+const HOTEL_AVAILABILITY_TESTS = [
   {
     name: "Test 1: SINGI Hotel - Expected 2 rooms available",
     input: {
       creditCard: "377361",
-      voucherCode: "P370336ZYH", 
+      voucherCode: "P370336ZYH",
       destination: "Singapore",
       hotel: "SINGI",
       arrivalDate: "2025-10-15",
@@ -39,7 +39,7 @@ const TEST_CASES = [
     name: "Test 2: SINOR Hotel - Expected 0 rooms available",
     input: {
       creditCard: "377361",
-      voucherCode: "P370336ZYH", 
+      voucherCode: "P370336ZYH",
       destination: "Singapore",
       hotel: "SINOR",
       arrivalDate: "2025-10-15",
@@ -49,6 +49,50 @@ const TEST_CASES = [
     expected: {
       available: false,
       roomCount: 0
+    }
+  }
+];
+
+// Test cases for validate-voucher
+const VOUCHER_VALIDATION_TESTS = [
+  {
+    name: "Voucher Test 1: Valid voucher - Expected TRUE",
+    input: {
+      creditCard: "377361",
+      voucherCode: "P370336ZYH"
+    },
+    expected: {
+      valid: true
+    }
+  },
+  {
+    name: "Voucher Test 2: Invalid credit card - Expected FALSE",
+    input: {
+      creditCard: "377362",
+      voucherCode: "P370336ZYA"
+    },
+    expected: {
+      valid: false
+    }
+  },
+  {
+    name: "Voucher Test 3: Invalid voucher code - Expected FALSE",
+    input: {
+      creditCard: "377361",
+      voucherCode: "P370336ZYA"
+    },
+    expected: {
+      valid: false
+    }
+  }
+  {
+  name: "Voucher Test 4: Valid voucher code - Expected TRUE",
+    input: {
+      creditCard: "379875",
+      voucherCode: "J526224GBZ"
+    },
+    expected: {
+      valid: true
     }
   }
 ];
