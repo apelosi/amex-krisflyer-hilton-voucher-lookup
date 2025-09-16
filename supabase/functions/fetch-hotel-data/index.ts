@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,15 +13,65 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Starting fetch-hotel-data function...');
+    console.log('Starting fetch-hotel-data function with caching...');
 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    // First, try to get cached data
+    console.log('Checking for cached hotel data...');
+    let cachedData = null;
+    let cacheError = null;
+    
+    try {
+      const result = await supabase
+        .from('hotel_data')
+        .select('data, last_updated')
+        .eq('id', 1)
+        .single();
+      cachedData = result.data;
+      cacheError = result.error;
+    } catch (error) {
+      console.log('Table might not exist, will create it:', error.message);
+      cacheError = error;
+    }
+
+    if (cachedData && !cacheError) {
+      const lastUpdated = new Date(cachedData.last_updated);
+      const now = new Date();
+      const hoursSinceUpdate = (now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60);
+      
+      console.log(`Cached data found, last updated: ${lastUpdated.toISOString()}, hours ago: ${hoursSinceUpdate.toFixed(2)}`);
+      
+      // If data is less than 24 hours old, return cached data
+      if (hoursSinceUpdate < 24) {
+        console.log('Returning cached data (fresh)');
+        return new Response(JSON.stringify({
+          ...cachedData.data,
+          cached: true,
+          lastUpdated: cachedData.last_updated
+        }), {
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          },
+        });
+      } else {
+        console.log('Cached data is stale, will refresh...');
+      }
+    } else {
+      console.log('No cached data found or error:', cacheError?.message);
+    }
+
+    // If we get here, either no cache exists or it's stale - refresh the data
+    console.log('Refreshing hotel data from source...');
+    
     const scraperApiKey = Deno.env.get('SCRAPERAPI_KEY');
     if (!scraperApiKey) {
       console.error('SCRAPERAPI_KEY environment variable not found');
       throw new Error('SCRAPERAPI_KEY is not configured');
     }
-
-    console.log('Making request to ScraperAPI...');
 
     const verificationUrl = 'https://apac.hilton.com/amexkrisflyer';
     const params = new URLSearchParams({
@@ -46,6 +97,24 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('ScraperAPI error response:', errorText);
+      
+      // If scraping fails but we have cached data, return stale cache
+      if (cachedData) {
+        console.log('Scraping failed, returning stale cached data as fallback');
+        return new Response(JSON.stringify({
+          ...cachedData.data,
+          cached: true,
+          stale: true,
+          lastUpdated: cachedData.last_updated,
+          warning: 'Using cached data due to scraping failure'
+        }), {
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          },
+        });
+      }
+      
       throw new Error(`ScraperAPI failed with status ${response.status}: ${errorText}`);
     }
 
@@ -54,6 +123,24 @@ serve(async (req) => {
     
     if (!htmlContent || htmlContent.length < 1000) {
       console.error('HTML content appears to be empty or too short');
+      
+      // If parsing fails but we have cached data, return stale cache
+      if (cachedData) {
+        console.log('Parsing failed, returning stale cached data as fallback');
+        return new Response(JSON.stringify({
+          ...cachedData.data,
+          cached: true,
+          stale: true,
+          lastUpdated: cachedData.last_updated,
+          warning: 'Using cached data due to parsing failure'
+        }), {
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          },
+        });
+      }
+      
       throw new Error('Failed to retrieve valid HTML content from the website');
     }
 
@@ -61,22 +148,35 @@ serve(async (req) => {
     const destinations = extractSelectOptions(htmlContent, 'amex_dest_select');
     const hotelData = extractHotelOptions(htmlContent, 'amex_select');
     
-    console.log('Extracted destinations:', destinations);
-    console.log('Extracted hotel data:', hotelData);
+    console.log('Extracted destinations:', destinations.length);
+    console.log('Extracted hotels:', hotelData.length);
     
-    if (destinations.length === 0) {
-      console.error('No destinations found in HTML');
-      throw new Error('No destinations found on the website');
-    }
-    
-    if (hotelData.length === 0) {
-      console.error('No hotels found in HTML');
-      throw new Error('No hotels found on the website');
+    if (destinations.length === 0 || hotelData.length === 0) {
+      console.error('Failed to extract hotel data from HTML');
+      
+      // If extraction fails but we have cached data, return stale cache
+      if (cachedData) {
+        console.log('Extraction failed, returning stale cached data as fallback');
+        return new Response(JSON.stringify({
+          ...cachedData.data,
+          cached: true,
+          stale: true,
+          lastUpdated: cachedData.last_updated,
+          warning: 'Using cached data due to extraction failure'
+        }), {
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          },
+        });
+      }
+      
+      throw new Error('No destinations or hotels found on the website');
     }
 
     // Build data structures
     const hotelNames = hotelData.map(hotel => hotel.name);
-    const hotels: Record<string, string> = {}; // hotel code -> hotel name mapping
+    const hotels: Record<string, string> = {};
     const hotelsByDestination: Record<string, string[]> = {};
     
     // Initialize destination arrays
@@ -86,7 +186,7 @@ serve(async (req) => {
     
     // Process hotel data
     hotelData.forEach(hotel => {
-      hotels[hotel.ctyhocn] = hotel.name; // hotel code as key, hotel name as value
+      hotels[hotel.ctyhocn] = hotel.name;
       if (hotel.destination && hotelsByDestination[hotel.destination]) {
         hotelsByDestination[hotel.destination].push(hotel.name);
       }
@@ -95,18 +195,43 @@ serve(async (req) => {
     const result = {
       success: true,
       destinations,
-      hotels: hotelNames, // Array of hotel names for backward compatibility
+      hotels: hotelNames,
       hotelsByDestination,
-      hotelCodes: hotels // The mapping object (hotel code -> hotel name)
+      hotelCodes: hotels
     };
 
-    console.log('Function completed successfully, returning:', {
+    // Update the cache with fresh data
+    console.log('Updating cache with fresh data...');
+    try {
+      const { error: upsertError } = await supabase
+        .from('hotel_data')
+        .upsert({
+          id: 1,
+          data: result,
+          last_updated: new Date().toISOString()
+        });
+
+      if (upsertError) {
+        console.error('Failed to update cache:', upsertError);
+        // Continue anyway - we still return the fresh data
+      } else {
+        console.log('Cache updated successfully');
+      }
+    } catch (error) {
+      console.log('Cache update failed, but continuing with fresh data:', error.message);
+    }
+
+    console.log('Function completed successfully, returning fresh data:', {
       destinationCount: destinations.length,
       hotelCount: hotelNames.length,
       mappingCount: Object.keys(hotelsByDestination).length
     });
 
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify({
+      ...result,
+      cached: false,
+      lastUpdated: new Date().toISOString()
+    }), {
       headers: { 
         ...corsHeaders,
         'Content-Type': 'application/json'
@@ -115,7 +240,37 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in fetch-hotel-data function:', error);
-    console.error('Error stack:', error.stack);
+    
+    // Try to return cached data as last resort
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseAnonKey);
+      
+      const { data: cachedData } = await supabase
+        .from('hotel_data')
+        .select('data, last_updated')
+        .eq('id', 1)
+        .single();
+        
+      if (cachedData) {
+        console.log('Returning cached data as fallback due to error');
+        return new Response(JSON.stringify({
+          ...cachedData.data,
+          cached: true,
+          stale: true,
+          lastUpdated: cachedData.last_updated,
+          warning: 'Using cached data due to system error'
+        }), {
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          },
+        });
+      }
+    } catch (fallbackError) {
+      console.error('Fallback to cached data also failed:', fallbackError);
+    }
     
     return new Response(JSON.stringify({ 
       success: false, 
