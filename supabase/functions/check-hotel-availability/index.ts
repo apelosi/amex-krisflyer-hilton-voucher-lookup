@@ -75,6 +75,7 @@ function parseAvailability(html: string): { available: boolean; roomCount?: numb
   return { available: false, roomCount: 0 };
 }
 
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -89,6 +90,9 @@ serve(async (req) => {
 
     const requestData: AvailabilityRequest = await req.json();
     console.log('Checking availability for:', requestData);
+    
+    // Note: Voucher validation is handled in the frontend before calling this function
+    console.log('Proceeding with hotel availability check...');
 
     // Get hotel data to validate the hotel code
     const { data: hotelData, error: hotelError } = await supabase.functions.invoke('fetch-hotel-data');
@@ -117,8 +121,9 @@ serve(async (req) => {
       'api_key': scraperApiKey,
       'url': hiltonUrl,
       'render': 'true', // Enable JavaScript rendering
-      'country_code': 'gb', // Use UK proxies
-      'session_number': '1' // Use session for consistency
+      'country_code': 'sg', // Use Singapore proxies for APAC region
+      'session_number': '1', // Use session for consistency
+      'premium': 'true' // Required for protected domains
     });
     
     const fullScraperUrl = `${scraperApiUrl}?${scraperParams.toString()}`;

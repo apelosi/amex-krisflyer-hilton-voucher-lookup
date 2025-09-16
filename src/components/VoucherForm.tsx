@@ -97,7 +97,12 @@ export function VoucherForm() {
   
   const isFormValid = creditCard.length === 6 && voucherCode.length === 10 && destination && destination !== 'Select Destination' && hotel && hotel !== 'Select Hotel' && voucherExpiry;
   const canShowDestination = creditCard.length === 6 && voucherCode.length === 10 && voucherExpiry;
-  const availableHotels = (destination && destination !== 'Select Destination') ? hotelData.hotelsByDestination[destination] || [] : hotelData.hotels;
+  // Get available hotels as codes (keys) instead of names
+  const availableHotelCodes = (destination && destination !== 'Select Destination') 
+    ? Object.entries(hotelData.hotelCodes || {})
+        .filter(([code, name]) => hotelData.hotelsByDestination[destination]?.includes(name))
+        .map(([code]) => code)
+    : Object.keys(hotelData.hotelCodes || {});
 
   const getBookingUrl = (result: AvailabilityResult) => {
     // Use the real booking URL from the browser automation result if available
@@ -112,8 +117,8 @@ export function VoucherForm() {
     departureDate.setDate(departureDate.getDate() + 1);
     const departureDateStr = departureDate.toISOString().split('T')[0];
     
-    // Get the hotel code from the dynamic data - this should be the actual hotelCode for the selected hotel
-    const hotelCode = hotel && hotelData.hotelCodes[hotel] ? hotelData.hotelCodes[hotel] : null;
+    // Hotel is already the hotel code
+    const hotelCode = hotel;
     
     if (!hotelCode) {
       throw new Error(`Hotel code not found for selected hotel: ${hotel}`);
@@ -143,10 +148,8 @@ export function VoucherForm() {
       const dynamicGroupCode = "ZKFA25";
       console.log('Using hardcoded groupCode:', dynamicGroupCode);
       
-      // Get hotel code from the selected hotel name
-      const hotelCode = hotel && hotelData.hotelCodes[hotel] ? hotelData.hotelCodes[hotel] : null;
-      
-      if (!hotelCode) {
+      // Hotel is already the hotel code, no lookup needed
+      if (!hotel) {
         throw new Error(`Hotel code not found for selected hotel: ${hotel}`);
       }
 
@@ -156,7 +159,7 @@ export function VoucherForm() {
           creditCard,
           voucherCode,
           destination,
-          hotel,
+          hotel, // This is already the hotel code
           arrivalDate: new Date().toISOString().split('T')[0], // Start from today
           voucherExpiry,
           groupCode: dynamicGroupCode
@@ -295,9 +298,11 @@ export function VoucherForm() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Select Hotel">Select Hotel</SelectItem>
-                    {availableHotels.map(hotelName => <SelectItem key={hotelName} value={hotelName}>
-                        {hotelName}
-                      </SelectItem>)}
+                    {availableHotelCodes.map(hotelCode => (
+                      <SelectItem key={hotelCode} value={hotelCode}>
+                        {hotelData.hotelCodes?.[hotelCode] || hotelCode}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>}
@@ -349,7 +354,7 @@ export function VoucherForm() {
               Availability Results
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Showing availability for {hotel} from today through {formatDate(voucherExpiry)}
+              Showing availability for {hotelData.hotelCodes?.[hotel || ''] || hotel} from today through {formatDate(voucherExpiry)}
             </p>
             <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
               <p className="text-xs text-yellow-800 dark:text-yellow-200 italic">

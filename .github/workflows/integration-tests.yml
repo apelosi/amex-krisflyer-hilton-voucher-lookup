@@ -40,29 +40,15 @@ jobs:
         
     - name: Run integration tests
       run: |
-        # Get the function URL
-        SUPABASE_URL=$(supabase status --output json | jq -r '.api.url')
-        FUNCTION_URL="${SUPABASE_URL}/functions/v1/test-hotel-availability"
+        # Set environment variables for the test script
+        export SUPABASE_URL="https://ynlnrvuqypmwpevabtdc.supabase.co"
+        export SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
+        export SCRAPERAPI_KEY="${{ secrets.SCRAPERAPI_KEY }}"
         
-        echo "Running tests against: $FUNCTION_URL"
+        echo "Running complete integration tests..."
         
-        # Run the tests
-        response=$(curl -s -X POST "$FUNCTION_URL" \
-          -H "Content-Type: application/json" \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
-        
-        echo "Test response: $response"
-        
-        # Parse the response and check if tests passed
-        success=$(echo "$response" | jq -r '.success')
-        if [ "$success" != "true" ]; then
-          echo "Integration tests failed!"
-          echo "$response" | jq '.'
-          exit 1
-        fi
-        
-        echo "All integration tests passed!"
-        echo "$response" | jq '.summary'
+        # Run the complete integration test suite
+        npm run test:integration-complete
       env:
         SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}

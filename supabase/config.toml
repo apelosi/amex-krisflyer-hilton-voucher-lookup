@@ -3,8 +3,11 @@ project_id = "ynlnrvuqypmwpevabtdc"
 [functions.check-hotel-availability]
 verify_jwt = false
 
-[functions.test-browserless-api]
+[functions.fetch-hotel-data]
 verify_jwt = false
 
-[functions.fetch-hotel-data]
+[functions.validate-voucher]
+verify_jwt = false
+
+[functions.test-hotel-availability]
 verify_jwt = false
