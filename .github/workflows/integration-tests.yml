@@ -33,7 +33,7 @@ jobs:
         
     - name: Deploy test function
       run: |
-        supabase functions deploy test-hotel-availability
+        supabase functions deploy test-hotel-availability --project-ref ynlnrvuqypmwpevabtdc
       env:
         SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
