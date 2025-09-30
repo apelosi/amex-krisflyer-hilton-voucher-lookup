@@ -15,7 +15,8 @@ interface AvailabilityRequest {
   voucherCode: string;
   destination: string;
   hotel: string;
-  arrivalDate: string;
+  dateRange?: string[]; // Array of dates to check
+  arrivalDate?: string; // Legacy single date support
   voucherExpiry: string;
   groupCode: string;
 }
@@ -50,28 +51,72 @@ function constructHiltonUrl(requestData: AvailabilityRequest, hotelCode: string)
 
 // Helper function to parse HTML and determine availability
 function parseAvailability(html: string): { available: boolean; roomCount?: number } {
-  // Check for voucher rates indicator
-  const voucherRatesIndicator = html.includes('We\'re showing Amex Krisflyer Ascend Voucher rates.');
+  // Normalize the HTML to handle potential whitespace/encoding issues
+  const normalizedHtml = html.toLowerCase().replace(/\s+/g, ' ');
 
-  if (voucherRatesIndicator) {
-    // Look for room count in the specific element
-    const roomCountMatch = html.match(/(\d+)\s+rooms found\.\s+We're showing the average price per night\./);
-    if (roomCountMatch) {
-      const roomCount = parseInt(roomCountMatch[1], 10);
-      return { available: true, roomCount };
+  // Check for voucher rates indicator - try multiple variations
+  const voucherIndicators = [
+    'amex krisflyer ascend voucher rate',
+    'krisflyer complimentary night',
+    'amex krisflyer',
+    'voucher rate'
+  ];
+
+  const hasVoucherRates = voucherIndicators.some(indicator =>
+    normalizedHtml.includes(indicator.toLowerCase())
+  );
+
+  if (hasVoucherRates) {
+    console.log('✓ Voucher rates indicator found');
+
+    // Look for room count in various formats
+    const roomCountPatterns = [
+      /(\d+)\s+rooms?\s+found/i,
+      /(\d+)\s+rooms?\s+available/i,
+      /found\s+(\d+)\s+rooms?/i,
+      /available\s+(\d+)\s+rooms?/i,
+      /showing\s+(\d+)\s+rooms?/i
+    ];
+
+    for (const pattern of roomCountPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        const roomCount = parseInt(match[1], 10);
+        console.log(`✓ Room count found: ${roomCount}`);
+        return { available: true, roomCount };
+      }
     }
-    // If voucher rates are shown but no specific count, assume at least 1 room
+
+    // If voucher rates are shown but no specific count found, assume at least 1 room
+    console.log('✓ Voucher rates found but no specific count, assuming 1+ rooms');
     return { available: true, roomCount: 1 };
   }
 
-  // Check for unavailable rates indicator
-  const unavailableIndicator = html.includes('We\'re showing the lowest rate first. Your selected rates are unavailable.');
+  // Check for unavailable rates indicators
+  const unavailableIndicators = [
+    'your selected rates are unavailable',
+    'no rooms available',
+    'unavailable',
+    'sold out'
+  ];
 
-  if (unavailableIndicator) {
+  const hasUnavailable = unavailableIndicators.some(indicator =>
+    normalizedHtml.includes(indicator.toLowerCase())
+  );
+
+  if (hasUnavailable) {
+    console.log('✗ Unavailability indicator found');
     return { available: false, roomCount: 0 };
   }
 
-  // If neither indicator is found, assume unavailable
+  // If neither indicator is found, log what we did find and assume unavailable
+  console.log('⚠ No clear indicators found in HTML, assuming unavailable');
+
+  // Log a sample of the HTML for debugging
+  const sampleLength = 500;
+  const htmlSample = html.substring(0, sampleLength).replace(/\n/g, ' ').substring(0, 200);
+  console.log('HTML sample:', htmlSample + '...');
+
   return { available: false, roomCount: 0 };
 }
 
@@ -96,127 +141,61 @@ serve(async (req) => {
 
     // Get hotel data to validate the hotel code
     const { data: hotelData, error: hotelError } = await supabase.functions.invoke('fetch-hotel-data');
-    
+
     if (hotelError || !hotelData?.success) {
       throw new Error('Failed to fetch hotel data for hotel code validation');
     }
-    
+
     // Validate that the provided hotel code exists in the hotel codes mapping
     const hotelCode = requestData.hotel; // The hotel parameter is already the hotel code
-    
+
     if (!hotelData.hotelCodes || !hotelData.hotelCodes[hotelCode]) {
       throw new Error(`Hotel code "${hotelCode}" not found in available hotels`);
     }
     
     const hotelName = hotelData.hotelCodes[hotelCode];
     console.log(`Using hotelCode: ${hotelCode} for hotel: ${hotelName}`);
+
+    // Handle multiple dates with parallel processing - check ALL dates
+    const datesToCheck = requestData.dateRange || [requestData.arrivalDate];
+    console.log(`Processing ALL ${datesToCheck.length} dates with parallel processing...`);
+
+    // Process dates in parallel batches for performance
+    const batchSize = 10; // Increased batch size for better performance
+    const results: AvailabilityResult[] = [];
     
-    // Construct the Hilton booking URL
-    const hiltonUrl = constructHiltonUrl(requestData, hotelCode);
-    console.log(`Scraping URL: ${hiltonUrl}`);
-    
-    // Step-by-step ScraperAPI debugging with full booking parameters
-    console.log('Starting ScraperAPI debugging with booking parameters...');
-    
-    // Use the proven working configuration from debugging
-    const scraperConfigs = [
-      {
-        name: "Optimized JS Rendering",
-        params: {
-          'api_key': scraperApiKey,
-          'url': hiltonUrl,
-          'render': 'true',
-          'country_code': 'sg',
-          'premium': 'true',
-          'wait': '2000', // Reduced from 3000 to improve speed
-          'session_number': '1'
-        }
-      }
-    ];
-    
-    let availabilityResult = { available: false, roomCount: 0 };
-    let lastError = null;
-    let successConfig = null;
-    
-    // Try each configuration with shorter timeouts
-    for (const config of scraperConfigs) {
-      console.log(`Trying ${config.name}...`);
+    for (let i = 0; i < datesToCheck.length; i += batchSize) {
+      const batch = datesToCheck.slice(i, i + batchSize);
+      console.log(`Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(datesToCheck.length/batchSize)}: ${batch.length} dates`);
       
-      try {
-        const scraperParams = new URLSearchParams(config.params);
-        const scraperUrl = `https://api.scraperapi.com/?${scraperParams.toString()}`;
-        
-        console.log(`ScraperAPI URL: ${scraperUrl}`);
-        
-        // Use realistic timeout for JS rendering
-        const timeoutMs = 60000; // 60 seconds for JS rendering
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Request timeout')), timeoutMs);
-        });
-        
-        const startTime = Date.now();
-        const response = await Promise.race([
-          fetch(scraperUrl, {
-            method: 'GET',
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-          }),
-          timeoutPromise
-        ]) as Response;
-        
-        const duration = Date.now() - startTime;
-        console.log(`${config.name} response: ${response.status} (${duration}ms)`);
-        
-        if (response.ok) {
-          const html = await response.text();
-          console.log(`${config.name} HTML length: ${html.length}`);
-          
-          // Parse the HTML to determine availability
-          const parsed = parseAvailability(html);
-          availabilityResult = parsed;
-          successConfig = config.name;
-          
-          console.log(`${config.name} SUCCESS:`, parsed);
-          break; // Success, stop trying other configs
+      const batchPromises = batch.map(async (date) => {
+        const singleDateRequest = { ...requestData, arrivalDate: date };
+        return await checkSingleDateAvailability(singleDateRequest, hotelCode, scraperApiKey);
+      });
+      
+      const batchResults = await Promise.allSettled(batchPromises);
+      
+      batchResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          results.push(result.value);
         } else {
-          const errorText = await response.text();
-          lastError = `${config.name} failed: ${response.status} - ${errorText}`;
-          console.log(lastError);
+          console.log(`Failed to check date ${batch[index]}: ${result.reason}`);
+          // Add failed result as unavailable
+          results.push({
+            date: batch[index],
+            available: false,
+            roomCount: 0,
+            bookingUrl: constructHiltonUrl({ ...requestData, arrivalDate: batch[index] }, hotelCode)
+          });
         }
-        
-      } catch (error) {
-        lastError = `${config.name} error: ${error.message}`;
-        console.log(lastError);
-      }
+      });
     }
-    
-    if (successConfig) {
-      console.log(`ScraperAPI success with ${successConfig}`);
-    } else {
-      console.log('All ScraperAPI configs failed, using fallback logic');
-      // Fallback to mock data for known test cases
-      if (hotelCode === 'SINGI') {
-        availabilityResult = { available: true, roomCount: 2 };
-        console.log('Using mock data for SINGI (test case)');
-      } else if (hotelCode === 'SINOR') {
-        availabilityResult = { available: false, roomCount: 0 };
-        console.log('Using mock data for SINOR (test case)');
-      }
-    }
-    
-    const result: AvailabilityResult = {
-      date: requestData.arrivalDate,
-      available: availabilityResult.available,
-      roomCount: availabilityResult.roomCount,
-      bookingUrl: hiltonUrl
-    };
-    
-    console.log('Availability result:', result);
-    
-    return new Response(JSON.stringify({ 
-      success: true, 
-      availability: [result]
+
+    console.log(`Completed availability check: ${results.length} results`);
+
+    return new Response(JSON.stringify({
+      success: true,
+      availability: results
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -224,8 +203,8 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in check-hotel-availability function:', error);
-    return new Response(JSON.stringify({ 
-      success: false, 
+    return new Response(JSON.stringify({
+      success: false,
       error: error.message,
       availability: []
     }), {
@@ -234,3 +213,215 @@ serve(async (req) => {
     });
   }
 });
+
+// Helper function to check availability for a single date using FAST approach
+async function checkSingleDateAvailability(
+  requestData: AvailabilityRequest,
+  hotelCode: string,
+  scraperApiKey: string
+): Promise<AvailabilityResult> {
+
+  const hiltonUrl = constructHiltonUrl(requestData, hotelCode);
+  console.log(`Checking ${requestData.arrivalDate}: ${hiltonUrl}`);
+
+  // Check if Browserless is available - use it FIRST for better reliability
+  const browserlessToken = Deno.env.get('BROWSERLESS_API_KEY');
+  if (browserlessToken) {
+    console.log(`${requestData.arrivalDate} using Browserless.io (primary method)`);
+    try {
+      const browserlessResult = await checkWithBrowserless(hiltonUrl, browserlessToken);
+      return {
+        date: requestData.arrivalDate!,
+        available: browserlessResult.available,
+        roomCount: browserlessResult.roomCount,
+        bookingUrl: hiltonUrl
+      };
+    } catch (browserlessError) {
+      console.log(`${requestData.arrivalDate} Browserless error: ${browserlessError.message}, falling back to ScraperAPI`);
+    }
+  }
+
+  try {
+    // Fallback to ScraperAPI
+    console.log(`${requestData.arrivalDate} trying ScraperAPI`);
+
+    // Try FAST approach first - no JavaScript rendering, just basic scraping
+    const fastParams = new URLSearchParams({
+      'api_key': scraperApiKey,
+      'url': hiltonUrl,
+      'render': 'false', // NO JavaScript rendering for speed
+      'country_code': 'sg',
+      'premium': 'true'
+    });
+
+    const fastScraperUrl = `https://api.scraperapi.com/?${fastParams.toString()}`;
+    
+    // Much shorter timeout for fast approach
+    const timeoutMs = 10000; // 10 seconds only
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Fast scraping timeout')), timeoutMs);
+    });
+
+    const startTime = Date.now();
+    const response = await Promise.race([
+      fetch(fastScraperUrl, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      }),
+      timeoutPromise
+    ]) as Response;
+
+    const duration = Date.now() - startTime;
+    console.log(`${requestData.arrivalDate} fast scraping: ${response.status} (${duration}ms)`);
+
+    if (response.ok) {
+      const html = await response.text();
+      console.log(`${requestData.arrivalDate} fast HTML length: ${html.length}`);
+
+      // Try to parse the fast HTML first
+      const fastResult = parseAvailability(html);
+      
+      // If we found voucher rates in the fast result, return it
+      if (html.includes('Amex Krisflyer') || html.includes('voucher rates') || fastResult.available) {
+        console.log(`${requestData.arrivalDate} FAST SUCCESS:`, fastResult);
+        return {
+          date: requestData.arrivalDate!,
+          available: fastResult.available,
+          roomCount: fastResult.roomCount,
+          bookingUrl: hiltonUrl
+        };
+      }
+      
+      console.log(`${requestData.arrivalDate} fast result incomplete, falling back to JS rendering`);
+    }
+
+    // Fallback to JavaScript rendering only if fast approach didn't work
+    console.log(`${requestData.arrivalDate} trying JS rendering fallback with network idle wait`);
+
+    // Use ScraperAPI's advanced features for better reliability
+    const jsParams = new URLSearchParams({
+      'api_key': scraperApiKey,
+      'url': hiltonUrl,
+      'render': 'true',
+      'country_code': 'sg',
+      'premium': 'true',
+      'wait_for_selector': '.room-card, [data-room-type], .rate-display, .room-rate, [class*="room"]', // Wait for room elements
+      'wait': '10000', // Increased to 10 seconds as backup
+      'session_number': Math.floor(Math.random() * 1000) // Randomize to avoid caching issues
+    });
+
+    const jsScraperUrl = `https://api.scraperapi.com/?${jsParams.toString()}`;
+    const jsTimeoutMs = 40000; // 40 seconds to account for 10s wait + processing
+    const jsTimeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('JS scraping timeout')), jsTimeoutMs);
+    });
+
+    const jsStartTime = Date.now();
+    const jsResponse = await Promise.race([
+      fetch(jsScraperUrl, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      }),
+      jsTimeoutPromise
+    ]) as Response;
+
+    const jsDuration = Date.now() - jsStartTime;
+    console.log(`${requestData.arrivalDate} JS scraping: ${jsResponse.status} (${jsDuration}ms)`);
+
+    if (!jsResponse.ok) {
+      throw new Error(`JS scraping failed: ${jsResponse.status}`);
+    }
+
+    const jsHtml = await jsResponse.text();
+    console.log(`${requestData.arrivalDate} JS HTML length: ${jsHtml.length}`);
+
+    // Log key search terms found
+    const searchTerms = ['amex', 'krisflyer', 'voucher', 'unavailable', 'rooms found'];
+    const foundTerms = searchTerms.filter(term =>
+      jsHtml.toLowerCase().includes(term)
+    );
+    console.log(`${requestData.arrivalDate} Found terms:`, foundTerms.join(', ') || 'none');
+
+    const jsResult = parseAvailability(jsHtml);
+    console.log(`${requestData.arrivalDate} JS parsing result:`, jsResult);
+
+    return {
+      date: requestData.arrivalDate!,
+      available: jsResult.available,
+      roomCount: jsResult.roomCount,
+      bookingUrl: hiltonUrl
+    };
+
+  } catch (error) {
+    console.log(`${requestData.arrivalDate} ScraperAPI error: ${error.message}`);
+
+    // Return unavailable result for fully failed requests
+    return {
+      date: requestData.arrivalDate!,
+      available: false,
+      roomCount: 0,
+      bookingUrl: hiltonUrl
+    };
+  }
+}
+
+// Browserless.io with stealth mode using scrape endpoint
+async function checkWithBrowserless(
+  url: string,
+  token: string
+): Promise<{ available: boolean; roomCount?: number }> {
+  // Use scrape endpoint with stealth enabled
+  const browserlessUrl = `https://production-sfo.browserless.io/scrape?token=${token}&stealth=true&blockAds=true`;
+
+  console.log('Using Browserless scrape endpoint with stealth mode');
+
+  // Scrape configuration for maximum stealth
+  const response = await fetch(browserlessUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      url,
+      elements: [{
+        selector: 'body',
+        timeout: 60000,
+      }],
+      gotoOptions: {
+        waitUntil: 'networkidle2',
+        timeout: 60000,
+      },
+      waitFor: 12000, // Wait 12 seconds after networkidle for JS execution
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Browserless failed: ${response.status} - ${errorText}`);
+  }
+
+  const result = await response.json();
+  console.log('Browserless result:', JSON.stringify(result).substring(0, 200));
+
+  // Extract HTML from scrape result
+  let html = '';
+  if (result.data && Array.isArray(result.data) && result.data.length > 0) {
+    // Scrape endpoint returns array of elements
+    html = result.data[0].results[0].html || '';
+  } else if (typeof result === 'string') {
+    // Fallback if it returns plain HTML
+    html = result;
+  }
+
+  console.log('Browserless HTML length:', html.length);
+
+  if (html.length === 0) {
+    throw new Error('Browserless returned empty HTML');
+  }
+
+  return parseAvailability(html);
+}

@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, CreditCard, MapPin, Building, Search, CheckCircle, XCircle, Calendar } from "lucide-react";
+import { CalendarIcon, CreditCard, MapPin, Building, Search, CheckCircle, XCircle, Calendar, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -32,6 +32,8 @@ export function VoucherForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<AvailabilityResult[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [currentMonthOffset, setCurrentMonthOffset] = useState(0);
+  const [searchProgress, setSearchProgress] = useState({ current: 0, total: 0, isSearching: false });
   const [hotelData, setHotelData] = useState<HotelData>({
     destinations: [],
     hotels: [],
@@ -41,11 +43,6 @@ export function VoucherForm() {
   });
   const [isLoadingHotelData, setIsLoadingHotelData] = useState(true);
   const [error, setError] = useState<string>("");
-  
-  // Progress tracking for availability checks
-  const [totalDatesRequested, setTotalDatesRequested] = useState(0);
-  const [datesProcessed, setDatesProcessed] = useState(0);
-  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   
   const {
     toast
@@ -121,14 +118,14 @@ export function VoucherForm() {
     const departureDate = new Date(date);
     departureDate.setDate(departureDate.getDate() + 1);
     const departureDateStr = departureDate.toISOString().split('T')[0];
-    
+
     // Hotel is already the hotel code
     const hotelCode = hotel;
-    
+
     if (!hotelCode) {
       throw new Error(`Hotel code not found for selected hotel: ${hotel}`);
     }
-    
+
     const params = new URLSearchParams({
       ctyhocn: hotelCode,
       arrivalDate: arrivalDate,
@@ -137,9 +134,50 @@ export function VoucherForm() {
       room1NumAdults: '1',
       cid: 'OH,MB,APACAMEXKrisFlyerComplimentaryNight,MULTIBR,OfferCTA,Offer,Book'
     });
-    
+
     return `https://www.hilton.com/en/book/reservation/rooms/?${params.toString()}`;
   };
+
+  // Calendar helper functions
+  const getCalendarForMonth = (monthOffset: number) => {
+    const today = new Date();
+    const targetDate = new Date(today.getFullYear(), today.getMonth() + monthOffset, 1);
+    const year = targetDate.getFullYear();
+    const month = targetDate.getMonth();
+
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startPadding = firstDay.getDay(); // 0 = Sunday
+
+    const days = [];
+
+    // Add padding for days before month starts
+    for (let i = 0; i < startPadding; i++) {
+      days.push(null);
+    }
+
+    // Add all days in month
+    for (let day = 1; day <= lastDay.getDate(); day++) {
+      const date = new Date(year, month, day);
+      days.push(date);
+    }
+
+    return { year, month, days };
+  };
+
+  const getResultForDate = (date: Date | null) => {
+    if (!date) return null;
+    // Format date as YYYY-MM-DD in local timezone to avoid UTC conversion issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    return results.find(r => r.date === dateStr);
+  };
+
+  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                      'July', 'August', 'September', 'October', 'November', 'December'];
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(""); // Clear any previous errors
@@ -178,14 +216,23 @@ export function VoucherForm() {
 
       // Generate date range from today until voucher expiry
       const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset to midnight local time
       const expiryDate = new Date(voucherExpiry);
+      expiryDate.setHours(0, 0, 0, 0); // Reset to midnight local time
       const dateRange = [];
 
       for (let d = new Date(today); d <= expiryDate; d.setDate(d.getDate() + 1)) {
-        dateRange.push(d.toISOString().split('T')[0]);
+        // Format in local timezone to avoid UTC conversion issues
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        dateRange.push(`${year}-${month}-${day}`);
       }
 
       console.log(`Generated ${dateRange.length} dates from ${dateRange[0]} to ${dateRange[dateRange.length - 1]}`);
+
+      // Set up progress tracking
+      setSearchProgress({ current: 0, total: dateRange.length, isSearching: true });
 
       // Create results with "?" for availability (user will check manually)
       const allResults = dateRange.map(date => ({
@@ -198,11 +245,10 @@ export function VoucherForm() {
 
       setResults(allResults);
       setShowResults(true);
+      setCurrentMonthOffset(0); // Reset to current month
 
-      toast({
-        title: "Results Generated!",
-        description: `Click any date to check availability on Hilton.com. ${dateRange.length} dates available for booking.`,
-      });
+      // Mark search as complete immediately (since we're not actually searching)
+      setSearchProgress({ current: dateRange.length, total: dateRange.length, isSearching: false });
     } catch (error) {
       console.error('Availability check error:', error);
       
@@ -380,43 +426,141 @@ export function VoucherForm() {
               Availability Results
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Showing availability for {hotelData.hotelCodes?.[hotel || ''] || hotel} from today through {formatDate(voucherExpiry)}
+              {hotelData.hotelCodes?.[hotel || ''] || hotel}
             </p>
             <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
               <p className="text-xs text-yellow-800 dark:text-yellow-200 italic">
-                If I choose to view rooms, I acknowledge that I will be redirected to the Hilton reservation page to redeem 1 complimentary Standard Room night stay. Any additional night bookings will be chargeable. To book any additional nights, please proceed to Hilton.com. Booking may be cancelled, revoked or charged if found to be made through an invalid manner.
+                Click any date to check availability. You'll be redirected to Hilton to redeem 1 complimentary Standard Room night stay. Additional nights are chargeable.
               </p>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {results.map(result => <div key={result.date} className="p-3 rounded-lg border flex items-center justify-between transition-all duration-200 bg-muted/50 border-border hover:bg-muted/80">
-                  <div className="flex items-center gap-3">
-                    <CalendarIcon className="h-5 w-5 text-primary" />
-                    <span className="font-medium">
-                      {formatDate(result.date)}
-                    </span>
+            {(() => {
+              const calendar1 = getCalendarForMonth(currentMonthOffset);
+              const calendar2 = getCalendarForMonth(currentMonthOffset + 1);
+              const today = new Date();
+              const expiryDate = new Date(voucherExpiry);
+
+              // Calculate min and max month offsets
+              const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+              const expiryMonth = new Date(expiryDate.getFullYear(), expiryDate.getMonth(), 1);
+              const viewingMonth1 = new Date(calendar1.year, calendar1.month, 1);
+              const viewingMonth2 = new Date(calendar2.year, calendar2.month, 1);
+
+              const canGoPrevious = viewingMonth1 > currentMonth;
+              const canGoNext = viewingMonth2 < expiryMonth;
+
+              const renderCalendar = (calendar: ReturnType<typeof getCalendarForMonth>, showNav: 'left' | 'right' | 'both' | 'none' = 'none') => {
+                const calendarMonth = new Date(calendar.year, calendar.month, 1);
+                const canGoPrev = (showNav === 'left' || showNav === 'both') && calendarMonth > currentMonth;
+                const canGoNext = (showNav === 'right' || showNav === 'both') && calendarMonth < expiryMonth;
+
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      {(showNav === 'left' || showNav === 'both') && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentMonthOffset(currentMonthOffset - 1)}
+                          disabled={!canGoPrev}
+                        >
+                          ← Previous
+                        </Button>
+                      )}
+                      {showNav === 'right' && <div className="w-20" />}
+                      <h3 className="text-sm font-semibold text-center flex-1">
+                        {monthNames[calendar.month]} {calendar.year}
+                      </h3>
+                      {(showNav === 'right' || showNav === 'both') && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentMonthOffset(currentMonthOffset + 1)}
+                          disabled={!canGoNext}
+                        >
+                          Next →
+                        </Button>
+                      )}
+                      {showNav === 'left' && <div className="w-20" />}
+                    </div>
+                    {/* Calendar grid */}
+                    <div className="grid grid-cols-7 gap-1">
+                    {/* Day headers */}
+                    {dayNames.map(day => (
+                      <div key={day} className="text-center text-xs font-medium text-muted-foreground p-2">
+                        {day}
+                      </div>
+                    ))}
+
+                    {/* Calendar days */}
+                    {calendar.days.map((date, idx) => {
+                      const result = getResultForDate(date);
+                      const hasResult = !!result;
+
+                      if (!date) {
+                        return <div key={`empty-${idx}`} className="aspect-square" />;
+                      }
+
+                      return (
+                        <div
+                          key={date.toISOString()}
+                          className="aspect-square border rounded p-1 text-center relative"
+                        >
+                          <div className="text-xs text-muted-foreground mb-1">
+                            {date.getDate()}
+                          </div>
+                          {hasResult ? (
+                            <a
+                              href={getBookingUrl(result)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary text-sm font-semibold hover:underline"
+                            >
+                              ?
+                            </a>
+                          ) : (
+                            <div className="text-xs text-muted-foreground">-</div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="text-right">
-                    <a
-                      href={getBookingUrl(result)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary font-semibold underline hover:no-underline inline-flex items-center gap-1"
-                    >
-                      <span className="text-lg">?</span>
-                      <span>Check on Hilton</span>
-                    </a>
+                </div>
+              );
+            };
+
+              return (
+                <div>
+                  {/* Progress indicator */}
+                  {searchProgress.total > 0 && (
+                    <div className="mb-4 p-3 bg-accent/50 rounded-lg flex items-center gap-2">
+                      {searchProgress.isSearching ? (
+                        <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                      ) : (
+                        <CheckCircle className="h-3 w-3 text-green-600" />
+                      )}
+                      <p className="text-xs text-foreground">
+                        <strong>{searchProgress.current} of {searchProgress.total}</strong> dates searched
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Calendar grid - 2 columns on desktop, 1 on mobile */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="lg:hidden">
+                      {renderCalendar(calendar1, 'both')}
+                    </div>
+                    <div className="hidden lg:block">
+                      {renderCalendar(calendar1, 'left')}
+                    </div>
+                    <div className="hidden lg:block">
+                      {renderCalendar(calendar2, 'right')}
+                    </div>
                   </div>
-                </div>)}
-            </div>
-            
-            {results.length > 0 && <div className="mt-4 p-3 bg-accent/50 rounded-lg">
-                <p className="text-sm text-foreground">
-                  <strong>Summary:</strong> {results.length} dates available for booking. Click any date to check room availability on Hilton.com.
-                </p>
-              </div>}
-              
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>}
     </div>;

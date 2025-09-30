@@ -26,7 +26,7 @@ const HOTEL_AVAILABILITY_TESTS = [
       voucherCode: "P370336ZYH",
       destination: "Singapore",
       hotel: "SINGI",
-      arrivalDate: "2025-10-15",
+      arrivalDate: "2025-11-12",
       voucherExpiry: "2026-07-31",
       groupCode: "ZKFA25"
     },
@@ -245,8 +245,8 @@ async function runTests() {
   
   const results = [];
   let allTestsPassed = true;
-  
-  for (const testCase of TEST_CASES) {
+
+  for (const testCase of HOTEL_AVAILABILITY_TESTS) {
     const result = await testHotelAvailability(testCase);
     results.push(result);
     
