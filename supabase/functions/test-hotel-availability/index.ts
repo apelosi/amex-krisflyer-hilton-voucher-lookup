@@ -46,10 +46,10 @@ serve(async (req) => {
         name: "Test 1: SINGI Hotel - Expected 2 rooms available",
         input: {
           creditCard: "377361",
-          voucherCode: "P370336ZYH", 
+          voucherCode: "P370336ZYH",
           destination: "Singapore",
           hotel: "SINGI",
-          arrivalDate: "2025-10-15",
+          arrivalDate: "2025-11-12",
           voucherExpiry: "2026-07-31",
           groupCode: "ZKFA25"
         },
