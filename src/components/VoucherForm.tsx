@@ -18,8 +18,8 @@ interface HotelData {
 
 interface AvailabilityResult {
   date: string;
-  available: boolean;
-  roomCount?: number;
+  available: boolean | null; // null means "unknown - check manually"
+  roomCount?: number | null;
   bookingUrl?: string;
   groupCode?: string;
 }
@@ -41,6 +41,11 @@ export function VoucherForm() {
   });
   const [isLoadingHotelData, setIsLoadingHotelData] = useState(true);
   const [error, setError] = useState<string>("");
+  
+  // Progress tracking for availability checks
+  const [totalDatesRequested, setTotalDatesRequested] = useState(0);
+  const [datesProcessed, setDatesProcessed] = useState(0);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   
   const {
     toast
@@ -163,62 +168,63 @@ export function VoucherForm() {
 
       console.log('Voucher validation successful, proceeding with hotel availability check...');
 
-      // Step 2: If voucher is valid, check hotel availability
-      // Use hardcoded group code for now
+      // Step 2: Generate date range and show clickable links (skip automation for now)
       const dynamicGroupCode = "ZKFA25";
       console.log('Using hardcoded groupCode:', dynamicGroupCode);
-      
-      // Hotel is already the hotel code, no lookup needed
+
       if (!hotel) {
         throw new Error(`Hotel code not found for selected hotel: ${hotel}`);
       }
 
-      // Call our Supabase Edge Function to check real availability
-      const { data, error } = await supabase.functions.invoke('check-hotel-availability', {
-        body: {
-          creditCard,
-          voucherCode,
-          destination,
-          hotel, // This is already the hotel code
-          arrivalDate: new Date().toISOString().split('T')[0], // Start from today
-          voucherExpiry,
-          groupCode: dynamicGroupCode
-        }
-      });
+      // Generate date range from today until voucher expiry
+      const today = new Date();
+      const expiryDate = new Date(voucherExpiry);
+      const dateRange = [];
 
-      if (error) {
-        throw error;
+      for (let d = new Date(today); d <= expiryDate; d.setDate(d.getDate() + 1)) {
+        dateRange.push(d.toISOString().split('T')[0]);
       }
 
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to check availability');
-      }
+      console.log(`Generated ${dateRange.length} dates from ${dateRange[0]} to ${dateRange[dateRange.length - 1]}`);
 
-      setResults(data.availability || []);
+      // Create results with "?" for availability (user will check manually)
+      const allResults = dateRange.map(date => ({
+        date,
+        available: null, // null means "unknown - user needs to check"
+        roomCount: null,
+        bookingUrl: generateBookingUrl(date, dynamicGroupCode),
+        groupCode: dynamicGroupCode
+      }));
+
+      setResults(allResults);
       setShowResults(true);
+
       toast({
-        title: "Search Complete",
-        description: `Found availability results for ${data.availability?.length || 0} dates.`
+        title: "Results Generated!",
+        description: `Click any date to check availability on Hilton.com. ${dateRange.length} dates available for booking.`,
       });
     } catch (error) {
       console.error('Availability check error:', error);
       
-      // Provide user-friendly error messages with guidance
-      let errorMessage = "We couldn't verify your voucher details. ";
+      // Provide specific error messages based on the actual failure
+      let errorMessage = "";
       
-      if (error.message?.includes('voucher details') || error.message?.includes('AMEX KrisFlyer')) {
-        errorMessage += "Please double-check your voucher code and credit card number (first 6 digits). If the issue persists, please contact support for assistance.";
-      } else if (error.message?.includes('groupCode') || error.message?.includes('booking URL')) {
-        errorMessage += "There was an issue processing your voucher. Please verify your information is correct or contact support.";
-      } else if (error.message?.includes('availability')) {
-        errorMessage = "We couldn't check room availability at this time. Please try again in a few minutes or contact support.";
+      if (error.message?.includes('Gateway Timeout') || error.message?.includes('504') || error.message?.includes('timeout')) {
+        errorMessage = "Hotel availability check timed out. This can happen when checking many dates. Please try with a smaller date range or try again later.";
+      } else if (error.message?.includes('CORS') || error.message?.includes('Failed to send a request')) {
+        errorMessage = "Network error while checking hotel availability. Please check your internet connection and try again.";
+      } else if (error.message?.includes('hotel') || error.message?.includes('availability')) {
+        errorMessage = "There was an issue checking hotel availability. Please try again in a few minutes or contact support.";
+      } else if (error.message?.includes('voucher details') || error.message?.includes('AMEX KrisFlyer')) {
+        errorMessage = "We couldn't verify your voucher details. Please double-check your voucher code and credit card number (first 6 digits). If the issue persists, please contact support for assistance.";
       } else {
-        errorMessage += "Please check your information and try again. If the problem continues, contact support.";
+        errorMessage = "An unexpected error occurred while checking availability. Please try again. If the problem continues, contact support.";
       }
       
       setError(errorMessage);
     } finally {
       setIsLoading(false);
+      setIsCheckingAvailability(false);
     }
   };
   const formatDate = (dateString: string) => {
@@ -384,16 +390,22 @@ export function VoucherForm() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {results.map(result => <div key={result.date} className={`p-3 rounded-lg border flex items-center justify-between transition-all duration-200 ${result.available ? "bg-success/10 border-success/20 hover:bg-success/20" : "bg-muted/50 border-border hover:bg-muted"}`}>
+              {results.map(result => <div key={result.date} className="p-3 rounded-lg border flex items-center justify-between transition-all duration-200 bg-muted/50 border-border hover:bg-muted/80">
                   <div className="flex items-center gap-3">
-                    {result.available ? <CheckCircle className="h-5 w-5 text-success" /> : <XCircle className="h-5 w-5 text-muted-foreground" />}
+                    <CalendarIcon className="h-5 w-5 text-primary" />
                     <span className="font-medium">
                       {formatDate(result.date)}
                     </span>
                   </div>
                   <div className="text-right">
-                    <a href={getBookingUrl(result)} target="_blank" rel="noopener noreferrer" className={`${result.available ? "text-success font-semibold underline hover:no-underline" : "text-muted-foreground text-sm underline hover:no-underline"}`}>
-                      {result.available ? `${result.roomCount} room${result.roomCount !== 1 ? 's' : ''} available` : "View rooms"}
+                    <a
+                      href={getBookingUrl(result)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary font-semibold underline hover:no-underline inline-flex items-center gap-1"
+                    >
+                      <span className="text-lg">?</span>
+                      <span>Check on Hilton</span>
                     </a>
                   </div>
                 </div>)}
@@ -401,9 +413,10 @@ export function VoucherForm() {
             
             {results.length > 0 && <div className="mt-4 p-3 bg-accent/50 rounded-lg">
                 <p className="text-sm text-foreground">
-                  <strong>Summary:</strong> {results.filter(r => r.available).length} available dates out of {results.length} checked with {results.reduce((sum, r) => sum + (r.roomCount || 0), 0)} total available rooms.
+                  <strong>Summary:</strong> {results.length} dates available for booking. Click any date to check room availability on Hilton.com.
                 </p>
               </div>}
+              
           </CardContent>
         </Card>}
     </div>;
