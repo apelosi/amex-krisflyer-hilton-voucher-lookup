@@ -270,7 +270,7 @@ export function VoucherForm() {
       setError(errorMessage);
     } finally {
       setIsLoading(false);
-      setIsCheckingAvailability(false);
+      
     }
   };
   const formatDate = (dateString: string) => {
