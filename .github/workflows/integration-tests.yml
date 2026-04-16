@@ -3,7 +3,7 @@ name: Integration Tests
 on:
   workflow_dispatch:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'cursor/**' ]
   pull_request:
     branches: [ main ]
   schedule:
