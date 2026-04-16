@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CalendarIcon, CreditCard, MapPin, Building, Search, CheckCircle, XCircle, Calendar, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { addDaysYmd } from "@/lib/hilton-dates";
 
 interface HotelData {
   destinations: string[];
@@ -113,13 +114,8 @@ export function VoucherForm() {
 
 
   const generateBookingUrl = (date: string, groupCode: string) => {
-    // Generate booking URL with real AMEX KrisFlyer parameters
     const arrivalDate = date;
-    const departureDate = new Date(date);
-    departureDate.setDate(departureDate.getDate() + 1);
-    const departureDateStr = departureDate.toISOString().split('T')[0];
-
-    // Hotel is already the hotel code
+    const departureDateStr = addDaysYmd(date, 1);
     const hotelCode = hotel;
 
     if (!hotelCode) {
@@ -206,49 +202,117 @@ export function VoucherForm() {
 
       console.log('Voucher validation successful, proceeding with hotel availability check...');
 
-      // Step 2: Generate date range and show clickable links (skip automation for now)
       const dynamicGroupCode = "ZKFA25";
-      console.log('Using hardcoded groupCode:', dynamicGroupCode);
 
       if (!hotel) {
         throw new Error(`Hotel code not found for selected hotel: ${hotel}`);
       }
 
-      // Generate date range from today until voucher expiry
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Reset to midnight local time
+      today.setHours(0, 0, 0, 0);
       const expiryDate = new Date(voucherExpiry);
-      expiryDate.setHours(0, 0, 0, 0); // Reset to midnight local time
-      const dateRange = [];
+      expiryDate.setHours(0, 0, 0, 0);
+      const dateRange: string[] = [];
 
       for (let d = new Date(today); d <= expiryDate; d.setDate(d.getDate() + 1)) {
-        // Format in local timezone to avoid UTC conversion issues
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
         dateRange.push(`${year}-${month}-${day}`);
       }
 
-      console.log(`Generated ${dateRange.length} dates from ${dateRange[0]} to ${dateRange[dateRange.length - 1]}`);
+      console.log(`Checking ${dateRange.length} dates via check-hotel-availability…`);
 
-      // Set up progress tracking
       setSearchProgress({ current: 0, total: dateRange.length, isSearching: true });
-
-      // Create results with "?" for availability (user will check manually)
-      const allResults = dateRange.map(date => ({
-        date,
-        available: null, // null means "unknown - user needs to check"
-        roomCount: null,
-        bookingUrl: generateBookingUrl(date, dynamicGroupCode),
-        groupCode: dynamicGroupCode
-      }));
-
-      setResults(allResults);
       setShowResults(true);
-      setCurrentMonthOffset(0); // Reset to current month
+      setCurrentMonthOffset(0);
 
-      // Mark search as complete immediately (since we're not actually searching)
+      const BATCH = 5;
+      const byDate = new Map<string, AvailabilityResult>();
+
+      for (let i = 0; i < dateRange.length; i += BATCH) {
+        const batch = dateRange.slice(i, i + BATCH);
+        const settled = await Promise.allSettled(
+          batch.map(async (arrivalDate) => {
+            const { data, error } = await supabase.functions.invoke("check-hotel-availability", {
+              body: {
+                creditCard,
+                voucherCode,
+                destination: destination!,
+                hotel,
+                arrivalDate,
+                voucherExpiry,
+                groupCode: dynamicGroupCode,
+              },
+            });
+            if (error) throw new Error(error.message);
+            if (!data?.success) {
+              throw new Error(data?.error || "Availability check failed");
+            }
+            const row = data.availability?.[0];
+            if (!row) throw new Error("No availability row returned");
+            return {
+              date: row.date || arrivalDate,
+              available: row.available,
+              roomCount: row.roomCount ?? null,
+              bookingUrl: row.bookingUrl || generateBookingUrl(arrivalDate, dynamicGroupCode),
+              groupCode: dynamicGroupCode,
+            } satisfies AvailabilityResult;
+          }),
+        );
+
+        for (let j = 0; j < settled.length; j++) {
+          const arrivalDate = batch[j];
+          const r = settled[j];
+          if (r.status === "fulfilled") {
+            byDate.set(r.value.date, r.value);
+          } else {
+            console.warn(arrivalDate, r.reason);
+            byDate.set(arrivalDate, {
+              date: arrivalDate,
+              available: null,
+              roomCount: null,
+              bookingUrl: generateBookingUrl(arrivalDate, dynamicGroupCode),
+              groupCode: dynamicGroupCode,
+            });
+          }
+        }
+
+        setSearchProgress({
+          current: Math.min(i + BATCH, dateRange.length),
+          total: dateRange.length,
+          isSearching: i + BATCH < dateRange.length,
+        });
+        setResults(
+          dateRange.map((d) =>
+            byDate.get(d) ?? {
+              date: d,
+              available: null,
+              roomCount: null,
+              bookingUrl: generateBookingUrl(d, dynamicGroupCode),
+              groupCode: dynamicGroupCode,
+            },
+          ),
+        );
+      }
+
       setSearchProgress({ current: dateRange.length, total: dateRange.length, isSearching: false });
+      setResults(
+        dateRange.map((d) =>
+          byDate.get(d) ?? {
+            date: d,
+            available: null,
+            roomCount: null,
+            bookingUrl: generateBookingUrl(d, dynamicGroupCode),
+            groupCode: dynamicGroupCode,
+          },
+        ),
+      );
+
+      toast({
+        title: "Availability updated",
+        description: `Checked ${dateRange.length} night(s). Tap a date to open Hilton.`,
+      });
     } catch (error) {
       console.error('Availability check error:', error);
       
@@ -430,7 +494,7 @@ export function VoucherForm() {
             </p>
             <div className="mt-3 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
               <p className="text-xs text-yellow-800 dark:text-yellow-200 italic">
-                Click any date to check availability. You'll be redirected to Hilton to redeem 1 complimentary Standard Room night stay. Additional nights are chargeable.
+                Green = voucher rate likely available (count shown). Red = likely unavailable. Gray = still checking or unknown. Click a date to open Hilton for that night.
               </p>
             </div>
           </CardHeader>
@@ -515,9 +579,28 @@ export function VoucherForm() {
                               href={getBookingUrl(result)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-primary text-sm font-semibold hover:underline"
+                              title={
+                                result.available === true
+                                  ? `~${result.roomCount ?? "?"} rooms (voucher rate)`
+                                  : result.available === false
+                                    ? "Likely no voucher rate"
+                                    : "Open Hilton to verify"
+                              }
+                              className={`text-sm font-semibold hover:underline block ${
+                                result.available === true
+                                  ? "text-green-600"
+                                  : result.available === false
+                                    ? "text-destructive"
+                                    : "text-muted-foreground"
+                              }`}
                             >
-                              ?
+                              {result.available === true
+                                ? result.roomCount != null
+                                  ? String(result.roomCount)
+                                  : "✓"
+                                : result.available === false
+                                  ? "—"
+                                  : "…"}
                             </a>
                           ) : (
                             <div className="text-xs text-muted-foreground">-</div>

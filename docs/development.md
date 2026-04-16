@@ -3,7 +3,7 @@
 ## Prereqs
 
 - Node.js 18+
-- Supabase CLI (only needed to deploy Edge Functions locally)
+- Supabase CLI (only needed to deploy Edge Functions). **Do not** `npm install -g supabase` (unsupported). On macOS: `brew install supabase/tap/supabase`. See [CLI install](https://github.com/supabase/cli#install-the-cli).
 
 ## Install
 
@@ -17,7 +17,9 @@ npm ci
 npm run dev
 ```
 
-The app is a Vite + React frontend in `src/` that talks to Supabase Edge Functions under `supabase/functions/`.
+The app is a Vite + React frontend in `src/` that talks to **hosted** Supabase Edge Functions (`supabase.functions.invoke`). With `npm run dev`, the UI runs locally but availability checks still execute on Supabase (Browserless/ScraperAPI secrets live there).
+
+After changing Edge Function code, deploy with the CLI (or your CI workflow) so production and local dev hit updated logic.
 
 ## Environment variables
 
