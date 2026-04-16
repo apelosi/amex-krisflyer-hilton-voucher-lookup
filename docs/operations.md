@@ -13,7 +13,11 @@ This repo has a scheduled GitHub Actions workflow in `.github/workflows/integrat
 - `SUPABASE_ACCESS_TOKEN`
 - `SUPABASE_DB_PASSWORD`
 - `SUPABASE_ANON_KEY`
-- `SCRAPERAPI_KEY`
+- `SCRAPERAPI_KEY` (needed for `fetch-hotel-data` / `validate-voucher` and ScraperAPI fallback)
+
+### Recommended (hotel availability)
+
+- `BROWSERLESS_API_KEY` — `check-hotel-availability` uses Browserless `/function` (real Chrome) when this is set; it is the most reliable path against Hilton's bot checks.
 
 ### Troubleshooting
 

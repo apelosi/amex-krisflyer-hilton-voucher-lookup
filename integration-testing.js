@@ -22,7 +22,7 @@ const HOTEL_AVAILABILITY_TESTS = [
       voucherCode: "P370336ZYH",
       destination: "Singapore",
       hotel: "SINCICI",
-      arrivalDate: "2026-05-06",
+      arrivalDate: "2026-04-25",
       voucherExpiry: "2026-07-31",
       groupCode: "ZKFA25",
     },
