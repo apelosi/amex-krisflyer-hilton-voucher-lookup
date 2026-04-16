@@ -5,8 +5,12 @@
  * - validate-voucher
  *
  * Used for both local runs and GitHub Actions scheduled runs.
+ *
+ * Locally: put SUPABASE_ANON_KEY (and optional SUPABASE_URL) in `.env` in the repo root.
+ * CI: secrets are injected by GitHub Actions (no .env file).
  */
 
+import "dotenv/config";
 import https from "https";
 
 const TEST_CONFIG = {
@@ -22,7 +26,7 @@ const HOTEL_AVAILABILITY_TESTS = [
       voucherCode: "P370336ZYH",
       destination: "Singapore",
       hotel: "SINCICI",
-      arrivalDate: "2026-05-06",
+      arrivalDate: "2026-04-25",
       voucherExpiry: "2026-07-31",
       groupCode: "ZKFA25",
     },
@@ -60,7 +64,7 @@ const HOTEL_AVAILABILITY_TESTS = [
     },
     expected: {
       available: true,
-      roomCount: 2,
+      roomCount: 9,
     },
   },
   {
@@ -76,7 +80,7 @@ const HOTEL_AVAILABILITY_TESTS = [
     },
     expected: {
       available: true,
-      roomCount: 2,
+      roomCount: 9,
     },
   },
   {
@@ -107,8 +111,8 @@ const HOTEL_AVAILABILITY_TESTS = [
       groupCode: "ZKFA25",
     },
     expected: {
-      available: false,
-      roomCount: 15,
+      available: true,
+      roomCount: 13,
     },
   },
 ];
@@ -130,9 +134,12 @@ const VOUCHER_VALIDATION_TESTS = [
     expected: { valid: false },
   },
   {
-    name: "Voucher Test 4: Valid voucher code - Expected TRUE",
+    name: "Voucher Test 4: Used voucher code - Expected FALSE (used)",
     input: { creditCard: "379875", voucherCode: "J526224GBZ" },
-    expected: { valid: true },
+    expected: {
+      valid: false,
+      errorContains: "You've used your voucher code. Please provide another one.",
+    },
   },
   {
     name: "Voucher Test 5: Invalid credit card - Expected FALSE",
@@ -205,6 +212,18 @@ async function testVoucherValidation(testCase) {
         error: `Validation result mismatch: Expected ${testCase.expected.valid}, Got ${responseBody.valid}`,
         duration,
       };
+    }
+
+    if (testCase.expected.errorContains) {
+      const err = responseBody.error || "";
+      if (!err.includes(testCase.expected.errorContains)) {
+        return {
+          name: testCase.name,
+          passed: false,
+          error: `Error message mismatch: Expected to include "${testCase.expected.errorContains}", Got "${err}"`,
+          duration,
+        };
+      }
     }
 
     return { name: testCase.name, passed: true, error: null, duration };

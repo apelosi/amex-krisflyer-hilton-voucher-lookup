@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { AMEX_LANDING, fetchHtmlViaBrowserless } from './browserless-html.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -66,59 +67,74 @@ serve(async (req) => {
 
     // If we get here, either no cache exists or it's stale - refresh the data
     console.log('Refreshing hotel data from source...');
-    
+
     const scraperApiKey = Deno.env.get('SCRAPERAPI_KEY');
-    if (!scraperApiKey) {
-      console.error('SCRAPERAPI_KEY environment variable not found');
-      throw new Error('SCRAPERAPI_KEY is not configured');
+    const browserlessToken = Deno.env.get('BROWSERLESS_API_KEY');
+    if (!scraperApiKey && !browserlessToken) {
+      throw new Error('SCRAPERAPI_KEY and/or BROWSERLESS_API_KEY must be configured');
     }
 
-    const verificationUrl = 'https://apac.hilton.com/amexkrisflyer';
-    const params = new URLSearchParams({
-      'api_key': scraperApiKey,
-      'url': verificationUrl,
-      'render': 'true',
-      'country_code': 'sg',
-      'session_number': '1',
-      'wait': '3000',
-      'premium': 'true'
-    });
+    let htmlContent = '';
 
-    const scraperUrl = `https://api.scraperapi.com/?${params.toString()}`;
-    const response = await fetch(scraperUrl, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    if (scraperApiKey) {
+      const params = new URLSearchParams({
+        'api_key': scraperApiKey,
+        'url': AMEX_LANDING,
+        'render': 'true',
+        'country_code': 'sg',
+        'session_number': '1',
+        'wait': '8000',
+        'premium': 'true',
+      });
+      const scraperUrl = `https://api.scraperapi.com/?${params.toString()}`;
+      const response = await fetch(scraperUrl, {
+        method: 'GET',
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+      });
+      console.log('ScraperAPI response status:', response.status);
+      if (response.ok) {
+        htmlContent = await response.text();
+      } else {
+        const errorText = await response.text();
+        console.error('ScraperAPI error response:', errorText);
       }
-    });
+    }
 
-    console.log('ScraperAPI response status:', response.status);
+    if ((!htmlContent || htmlContent.length < 1000) && browserlessToken) {
+      console.log('ScraperAPI HTML weak or missing; trying Browserless for hotel list...');
+      try {
+        htmlContent = await fetchHtmlViaBrowserless(AMEX_LANDING, browserlessToken);
+        console.log('Browserless HTML length:', htmlContent.length);
+      } catch (e) {
+        console.error('Browserless fetch failed:', e?.message ?? e);
+      }
+    }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('ScraperAPI error response:', errorText);
-      
-      // If scraping fails but we have cached data, return stale cache
+    if (!htmlContent) {
       if (cachedData) {
-        console.log('Scraping failed, returning stale cached data as fallback');
-        return new Response(JSON.stringify({
-          ...cachedData.data,
-          cached: true,
-          stale: true,
-          lastUpdated: cachedData.last_updated,
-          warning: 'Using cached data due to scraping failure'
-        }), {
-          headers: { 
-            ...corsHeaders,
-            'Content-Type': 'application/json'
+        console.log('No HTML from providers, returning stale cached data');
+        return new Response(
+          JSON.stringify({
+            ...cachedData.data,
+            cached: true,
+            stale: true,
+            lastUpdated: cachedData.last_updated,
+            warning: 'Using cached data due to scraping failure',
+          }),
+          {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json',
+            },
           },
-        });
+        );
       }
-      
-      throw new Error(`ScraperAPI failed with status ${response.status}: ${errorText}`);
+      throw new Error('Failed to fetch hotel list HTML from ScraperAPI and Browserless');
     }
 
-    const htmlContent = await response.text();
     console.log('HTML content received, length:', htmlContent.length);
     
     if (!htmlContent || htmlContent.length < 1000) {
