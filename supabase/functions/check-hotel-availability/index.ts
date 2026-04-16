@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { addDaysYmd } from "../_shared/hilton-dates.ts";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -31,16 +32,12 @@ interface AvailabilityResult {
 // Helper function to construct Hilton booking URL
 function constructHiltonUrl(requestData: AvailabilityRequest, hotelCode: string): string {
   const baseUrl = 'https://www.hilton.com/en/book/reservation/rooms/';
-  
-  // Calculate departure date (day after arrival)
-  const arrivalDate = new Date(requestData.arrivalDate);
-  const departureDate = new Date(arrivalDate);
-  departureDate.setDate(departureDate.getDate() + 1);
-  
+  const departureYmd = addDaysYmd(requestData.arrivalDate!, 1);
+
   const params = new URLSearchParams({
     'ctyhocn': hotelCode,
-    'arrivalDate': requestData.arrivalDate,
-    'departureDate': departureDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+    'arrivalDate': requestData.arrivalDate!,
+    'departureDate': departureYmd,
     'groupCode': requestData.groupCode,
     'room1NumAdults': '1',
     'cid': 'OH,MB,APACAMEXKrisFlyerComplimentaryNight,MULTIBR,OfferCTA,Offer,Book'
@@ -51,70 +48,77 @@ function constructHiltonUrl(requestData: AvailabilityRequest, hotelCode: string)
 
 // Helper function to parse HTML and determine availability
 function parseAvailability(html: string): { available: boolean; roomCount?: number } {
-  // Normalize the HTML to handle potential whitespace/encoding issues
   const normalizedHtml = html.toLowerCase().replace(/\s+/g, ' ');
 
-  // Check for voucher rates indicator - try multiple variations
   const voucherIndicators = [
     'amex krisflyer ascend voucher rate',
     'krisflyer complimentary night',
     'amex krisflyer',
-    'voucher rate'
+    'krisflyer ascend',
+    'voucher rate',
+    'voucher rates',
   ];
 
-  const hasVoucherRates = voucherIndicators.some(indicator =>
+  const hasVoucherRates = voucherIndicators.some((indicator) =>
     normalizedHtml.includes(indicator.toLowerCase())
   );
 
-  if (hasVoucherRates) {
-    console.log('✓ Voucher rates indicator found');
+  const roomCountPatterns = [
+    /(\d+)\s+rooms?\s+found\b/i,
+    /(\d+)\s+rooms?\s+available\b/i,
+    /\bfound\s+(\d+)\s+rooms?\b/i,
+    /\bavailable\s+(\d+)\s+rooms?\b/i,
+    /\bshowing\s+(\d+)\s+rooms?\b/i,
+    /\b(\d+)\s+rooms?\b(?=[\s\S]{0,80}\b(voucher|krisflyer|amex)\b)/i,
+    /\bwe(?:'|’)?re\s+showing\s+(\d+)\s+rooms?\b/i,
+    /\b(\d+)\s+room\s+types?\b/i,
+  ];
 
-    // Look for room count in various formats
-    const roomCountPatterns = [
-      /(\d+)\s+rooms?\s+found/i,
-      /(\d+)\s+rooms?\s+available/i,
-      /found\s+(\d+)\s+rooms?/i,
-      /available\s+(\d+)\s+rooms?/i,
-      /showing\s+(\d+)\s+rooms?/i
-    ];
-
+  const extractRoomCount = (): number | undefined => {
     for (const pattern of roomCountPatterns) {
       const match = html.match(pattern);
       if (match) {
-        const roomCount = parseInt(match[1], 10);
-        console.log(`✓ Room count found: ${roomCount}`);
-        return { available: true, roomCount };
+        const n = parseInt(match[1], 10);
+        if (!Number.isNaN(n) && n > 0) return n;
       }
     }
+    return undefined;
+  };
 
-    // If voucher rates are shown but no specific count found, assume at least 1 room
-    console.log('✓ Voucher rates found but no specific count, assuming 1+ rooms');
-    return { available: true, roomCount: 1 };
-  }
-
-  // Check for unavailable rates indicators
   const unavailableIndicators = [
     'your selected rates are unavailable',
     'no rooms available',
-    'unavailable',
-    'sold out'
+    'sold out',
+    'rates are unavailable',
+    'we couldn\'t find any rooms',
   ];
 
-  const hasUnavailable = unavailableIndicators.some(indicator =>
+  const hasUnavailable = unavailableIndicators.some((indicator) =>
     normalizedHtml.includes(indicator.toLowerCase())
   );
 
   if (hasUnavailable) {
-    console.log('✗ Unavailability indicator found');
-    return { available: false, roomCount: 0 };
+    const countWhenUnavailable = extractRoomCount();
+    console.log('✗ Unavailability / no-rate indicator found');
+    return {
+      available: false,
+      roomCount: countWhenUnavailable ?? 0,
+    };
   }
 
-  // If neither indicator is found, log what we did find and assume unavailable
-  console.log('⚠ No clear indicators found in HTML, assuming unavailable');
+  if (hasVoucherRates) {
+    console.log('✓ Voucher rates indicator found');
+    const roomCount = extractRoomCount();
+    if (roomCount !== undefined) {
+      console.log(`✓ Room count found: ${roomCount}`);
+      return { available: true, roomCount };
+    }
+    console.log('✓ Voucher rates found but no specific count, assuming 1+ rooms');
+    return { available: true, roomCount: 1 };
+  }
 
-  // Log a sample of the HTML for debugging
-  const sampleLength = 500;
-  const htmlSample = html.substring(0, sampleLength).replace(/\n/g, ' ').substring(0, 200);
+  console.log('⚠ No clear indicators found in HTML, assuming unavailable');
+  const htmlSample = html.substring(0, 500).replace(/\n/g, ' ').substring(0, 200);
   console.log('HTML sample:', htmlSample + '...');
 
   return { available: false, roomCount: 0 };
@@ -129,8 +133,11 @@ serve(async (req) => {
 
   try {
     const scraperApiKey = Deno.env.get('SCRAPERAPI_KEY');
-    if (!scraperApiKey) {
-      throw new Error('SCRAPERAPI_KEY not configured. Please set your ScraperAPI key in the environment variables.');
+    const browserlessToken = Deno.env.get('BROWSERLESS_API_KEY');
+    if (!scraperApiKey && !browserlessToken) {
+      throw new Error(
+        'No scraping provider configured. Set SCRAPERAPI_KEY and/or BROWSERLESS_API_KEY in Supabase secrets.',
+      );
     }
 
     const requestData: AvailabilityRequest = await req.json();
@@ -170,7 +177,7 @@ serve(async (req) => {
       
       const batchPromises = batch.map(async (date) => {
         const singleDateRequest = { ...requestData, arrivalDate: date };
-        return await checkSingleDateAvailability(singleDateRequest, hotelCode, scraperApiKey);
+        return await checkSingleDateAvailability(singleDateRequest, hotelCode);
       });
       
       const batchResults = await Promise.allSettled(batchPromises);
@@ -218,18 +225,16 @@ serve(async (req) => {
 async function checkSingleDateAvailability(
   requestData: AvailabilityRequest,
   hotelCode: string,
-  scraperApiKey: string
 ): Promise<AvailabilityResult> {
 
   const hiltonUrl = constructHiltonUrl(requestData, hotelCode);
   console.log(`Checking ${requestData.arrivalDate}: ${hiltonUrl}`);
 
-  // Check if Browserless is available - use it FIRST for better reliability
   const browserlessToken = Deno.env.get('BROWSERLESS_API_KEY');
   if (browserlessToken) {
-    console.log(`${requestData.arrivalDate} using Browserless.io (primary method)`);
+    console.log(`${requestData.arrivalDate} using Browserless /function (primary)`);
     try {
-      const browserlessResult = await checkWithBrowserless(hiltonUrl, browserlessToken);
+      const browserlessResult = await checkWithBrowserlessFunction(hiltonUrl, browserlessToken);
       return {
         date: requestData.arrivalDate!,
         available: browserlessResult.available,
@@ -237,8 +242,18 @@ async function checkSingleDateAvailability(
         bookingUrl: hiltonUrl
       };
     } catch (browserlessError) {
-      console.log(`${requestData.arrivalDate} Browserless error: ${browserlessError.message}, falling back to ScraperAPI`);
+      console.log(`${requestData.arrivalDate} Browserless error: ${browserlessError.message}, falling back`);
     }
+  }
+
+  const scraperApiKey = Deno.env.get('SCRAPERAPI_KEY');
+  if (!scraperApiKey) {
+    return {
+      date: requestData.arrivalDate!,
+      available: false,
+      roomCount: 0,
+      bookingUrl: hiltonUrl,
+    };
   }
 
   try {
@@ -369,59 +384,63 @@ async function checkSingleDateAvailability(
   }
 }
 
-// Browserless.io with stealth mode using scrape endpoint
-async function checkWithBrowserless(
+/** Browserless Function API: run Puppeteer and return visible text + HTML for parsing. */
+async function checkWithBrowserlessFunction(
   url: string,
-  token: string
+  token: string,
 ): Promise<{ available: boolean; roomCount?: number }> {
-  // Use scrape endpoint with stealth enabled
-  const browserlessUrl = `https://production-sfo.browserless.io/scrape?token=${token}&stealth=true&blockAds=true`;
+  const browserlessUrl = `https://production-sfo.browserless.io/function?token=${encodeURIComponent(token)}`;
 
-  console.log('Using Browserless scrape endpoint with stealth mode');
+  const escapedUrl = url.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "");
 
-  // Scrape configuration for maximum stealth
+  const puppeteerScript = `
+    module.exports = async ({ page }) => {
+      await page.setViewport({ width: 1920, height: 1080 });
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      });
+      await page.goto('${escapedUrl}', { waitUntil: 'networkidle2', timeout: 90000 });
+      await new Promise((r) => setTimeout(r, 8000));
+      try {
+        await page.waitForFunction(
+          () => {
+            const t = document.body && document.body.innerText ? document.body.innerText : '';
+            return /krisflyer|voucher|unavailable|rooms?\\b/i.test(t) && t.length > 400;
+          },
+          { timeout: 25000 },
+        );
+      } catch (_) {
+        /* continue with whatever loaded */
+      }
+      const innerText = await page.evaluate(() => document.body ? document.body.innerText : '');
+      const html = await page.content();
+      const title = await page.title();
+      return { title, innerText, htmlLength: html.length, html };
+    };
+  `;
+
   const response = await fetch(browserlessUrl, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      url,
-      elements: [{
-        selector: 'body',
-        timeout: 60000,
-      }],
-      gotoOptions: {
-        waitUntil: 'networkidle2',
-        timeout: 60000,
-      },
-      waitFor: 12000, // Wait 12 seconds after networkidle for JS execution
-    }),
+    headers: { 'Content-Type': 'application/javascript' },
+    body: puppeteerScript,
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Browserless failed: ${response.status} - ${errorText}`);
+    throw new Error(`Browserless function failed: ${response.status} - ${errorText}`);
   }
 
-  const result = await response.json();
-  console.log('Browserless result:', JSON.stringify(result).substring(0, 200));
+  const payload = await response.json();
+  const html = typeof payload?.html === 'string' ? payload.html : '';
+  const innerText = typeof payload?.innerText === 'string' ? payload.innerText : '';
+  const combined = innerText.length > html.length / 4
+    ? `${innerText}\n${html}`
+    : html;
 
-  // Extract HTML from scrape result
-  let html = '';
-  if (result.data && Array.isArray(result.data) && result.data.length > 0) {
-    // Scrape endpoint returns array of elements
-    html = result.data[0].results[0].html || '';
-  } else if (typeof result === 'string') {
-    // Fallback if it returns plain HTML
-    html = result;
+  if (!combined || combined.length < 200) {
+    throw new Error('Browserless returned empty content');
   }
 
-  console.log('Browserless HTML length:', html.length);
-
-  if (html.length === 0) {
-    throw new Error('Browserless returned empty HTML');
-  }
-
-  return parseAvailability(html);
+  return parseAvailability(combined);
 }
