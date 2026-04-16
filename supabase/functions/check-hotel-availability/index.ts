@@ -1,6 +1,28 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { addDaysYmd } from "../_shared/hilton-dates.ts";
+
+/** Parse YYYY-MM-DD as local calendar date (not UTC). */
+function parseYmdLocal(ymd: string): Date {
+  const parts = ymd.split("-").map((x) => parseInt(x, 10));
+  const y = parts[0];
+  const m = parts[1];
+  const d = parts[2];
+  if (!y || !m || !d) throw new Error(`Invalid date: ${ymd}`);
+  return new Date(y, m - 1, d);
+}
+
+function formatYmdLocal(d: Date): string {
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${mo}-${day}`;
+}
+
+function addDaysYmd(ymd: string, days: number): string {
+  const dt = parseYmdLocal(ymd);
+  dt.setDate(dt.getDate() + days);
+  return formatYmdLocal(dt);
+}
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
@@ -408,7 +430,14 @@ async function checkWithBrowserlessFunction(
         await page.waitForFunction(
           () => {
             const t = document.body && document.body.innerText ? document.body.innerText : '';
-            return /krisflyer|voucher|unavailable|rooms?\\b/i.test(t) && t.length > 400;
+            const u = t.toLowerCase();
+            return (
+              t.length > 400 &&
+              (u.includes('krisflyer') ||
+                u.includes('voucher') ||
+                u.includes('unavailable') ||
+                u.includes('room'))
+            );
           },
           { timeout: 25000 },
         );
