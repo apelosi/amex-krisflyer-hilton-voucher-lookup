@@ -1,8 +1,9 @@
 name: Integration Tests
 
 on:
+  workflow_dispatch:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'cursor/**' ]
   pull_request:
     branches: [ main ]
   schedule:
@@ -31,9 +32,19 @@ jobs:
       with:
         version: latest
         
-    - name: Deploy test function
+    - name: Deploy Edge Functions used by integration tests
       run: |
-        supabase functions deploy test-hotel-availability --project-ref ynlnrvuqypmwpevabtdc
+        set -euo pipefail
+        supabase --version
+        # Length-only check: confirms the secret is wired without printing the token
+        echo "SUPABASE_ACCESS_TOKEN length: ${#SUPABASE_ACCESS_TOKEN}"
+        if [ "${#SUPABASE_ACCESS_TOKEN}" -lt 20 ]; then
+          echo "SUPABASE_ACCESS_TOKEN looks missing or too short for a Supabase PAT — check repo secret name/value." >&2
+          exit 1
+        fi
+        supabase functions deploy check-hotel-availability --project-ref ynlnrvuqypmwpevabtdc
+        supabase functions deploy validate-voucher --project-ref ynlnrvuqypmwpevabtdc
+        supabase functions deploy fetch-hotel-data --project-ref ynlnrvuqypmwpevabtdc
       env:
         SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}

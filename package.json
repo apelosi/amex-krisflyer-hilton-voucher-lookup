@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:integration": "node integration-testing.js",
-    "test:deploy": "supabase functions deploy test-hotel-availability && npm run test:integration"
+    "test:deploy": "supabase functions deploy check-hotel-availability && supabase functions deploy validate-voucher && supabase functions deploy fetch-hotel-data && npm run test:integration"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -72,6 +72,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react-swc": "^3.5.0",
     "autoprefixer": "^10.4.20",
+    "dotenv": "^17.4.2",
     "eslint": "^9.9.0",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.9",
