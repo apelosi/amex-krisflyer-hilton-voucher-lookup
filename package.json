@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:integration": "node integration-testing.js",
+    "test:smoke": "node integration-testing.js --smoke",
     "test:deploy": "supabase functions deploy check-hotel-availability && supabase functions deploy validate-voucher && supabase functions deploy fetch-hotel-data && npm run test:integration"
   },
   "dependencies": {
