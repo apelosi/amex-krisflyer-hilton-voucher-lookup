@@ -48,7 +48,7 @@ jobs:
         echo "Running complete integration tests..."
         
         # Run the complete integration test suite
-        npm run test:integration-complete
+        npm run test:integration
       env:
         SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
