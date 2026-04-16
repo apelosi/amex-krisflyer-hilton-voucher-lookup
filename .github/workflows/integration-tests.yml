@@ -2,6 +2,11 @@ name: Integration Tests
 
 on:
   workflow_dispatch:
+    inputs:
+      run_full_integration_suite:
+        description: "Run all 12 tests (slow, ~10+ min). Leave unchecked for smoke only — Voucher Test 1 + Hotel Test 3 (~2–3 min)."
+        type: boolean
+        default: false
   push:
     branches: [ main, develop, 'cursor/**' ]
   pull_request:
@@ -52,15 +57,17 @@ jobs:
         
     - name: Run integration tests
       run: |
-        # Set environment variables for the test script
         export SUPABASE_URL="https://ynlnrvuqypmwpevabtdc.supabase.co"
         export SUPABASE_ANON_KEY="${{ secrets.SUPABASE_ANON_KEY }}"
         export SCRAPERAPI_KEY="${{ secrets.SCRAPERAPI_KEY }}"
-        
-        echo "Running complete integration tests..."
-        
-        # Run the complete integration test suite
-        npm run test:integration
+
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.run_full_integration_suite }}" != "true" ]; then
+          echo "Running smoke tests (voucher #1 + hotel #3)..."
+          npm run test:smoke
+        else
+          echo "Running full integration suite (12 tests)..."
+          npm run test:integration
+        fi
       env:
         SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}

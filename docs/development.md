@@ -21,6 +21,16 @@ The app is a Vite + React frontend in `src/` that talks to **hosted** Supabase E
 
 After changing Edge Function code, deploy with the CLI (or your CI workflow) so production and local dev hit updated logic.
 
+### Quick E2E check (without the full 12-test suite)
+
+- **Browser (dev only):** open `http://localhost:5173/?demo=1` — prefills the same values as **Voucher Test 1** + **Hotel Availability Test 3** (Singapore / SINGI, etc.). Submit once to exercise `validate-voucher` + one `check-hotel-availability` path (the full calendar still scans many dates; see below if you want to shorten that later).
+
+- **CLI:** `npm run test:smoke` — hits hosted functions with **two** API calls (voucher #1 + hotel #3). Needs `.env` with anon/publishable key like `npm run test:integration`.
+
+### GitHub Actions
+
+Manual **Run workflow** defaults to **smoke only** (checkbox “Run full integration suite” off). Nightly `schedule`, `push`, and `pull_request` still run the **full** 12-test suite.
+
 ## Environment variables
 
 See root `.env.example`.
