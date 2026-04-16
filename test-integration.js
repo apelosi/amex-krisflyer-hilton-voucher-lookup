@@ -20,13 +20,45 @@ const TEST_CONFIG = {
 // Test cases for check-hotel-availability
 const HOTEL_AVAILABILITY_TESTS = [
   {
-    name: "Test 1: SINGI Hotel - Expected 2 rooms available",
+    name: "Test 1: SINCICI Hotel on 2026-04-25",
+    input: {
+      creditCard: "377361",
+      voucherCode: "P370336ZYH",
+      destination: "Singapore",
+      hotel: "SINCICI",
+      arrivalDate: "2026-05-06",
+      voucherExpiry: "2026-07-31",
+      groupCode: "ZKFA25"
+    },
+    expected: {
+      available: true,
+      roomCount: 15
+    }
+  },
+  {
+    name: "Test 2: SINCICI Hotel on 2026-05-06",
+    input: {
+      creditCard: "377361",
+      voucherCode: "P370336ZYH",
+      destination: "Singapore",
+      hotel: "SINCICI",
+      arrivalDate: "2026-05-06",
+      voucherExpiry: "2026-07-31",
+      groupCode: "ZKFA25"
+    },
+    expected: {
+      available: true,
+      roomCount: 16
+    }
+  },
+  {
+    name: "Test 3: SINGI Hotel on 2026-04-30",
     input: {
       creditCard: "377361",
       voucherCode: "P370336ZYH",
       destination: "Singapore",
       hotel: "SINGI",
-      arrivalDate: "2025-11-12",
+      arrivalDate: "2026-04-30",
       voucherExpiry: "2026-07-31",
       groupCode: "ZKFA25"
     },
@@ -36,19 +68,51 @@ const HOTEL_AVAILABILITY_TESTS = [
     }
   },
   {
-    name: "Test 2: SINOR Hotel - Expected 0 rooms available",
+    name: "Test 4: SINGI Hotel on 2026-05-01",
+    input: {
+      creditCard: "377361",
+      voucherCode: "P370336ZYH",
+      destination: "Singapore",
+      hotel: "SINGI",
+      arrivalDate: "2026-05-01",
+      voucherExpiry: "2026-07-31",
+      groupCode: "ZKFA25"
+    },
+    expected: {
+      available: true,
+      roomCount: 2
+    }
+  },
+  {
+    name: "Test 5: SINOR Hotel on 2026-04-25",
     input: {
       creditCard: "377361",
       voucherCode: "P370336ZYH",
       destination: "Singapore",
       hotel: "SINOR",
-      arrivalDate: "2025-10-15",
+      arrivalDate: "2026-04-25",
+      voucherExpiry: "2026-07-31",
+      groupCode: "ZKFA25"
+    },
+    expected: {
+      available: true,
+      roomCount: 19
+    }
+  },
+  {
+    name: "Test 6: SINOR Hotel on 2026-05-02",
+    input: {
+      creditCard: "377361",
+      voucherCode: "P370336ZYH",
+      destination: "Singapore",
+      hotel: "SINOR",
+      arrivalDate: "2026-05-02",
       voucherExpiry: "2026-07-31",
       groupCode: "ZKFA25"
     },
     expected: {
       available: false,
-      roomCount: 0
+      roomCount: 15
     }
   }
 ];
@@ -203,8 +267,9 @@ async function testHotelAvailability(testCase) {
     
     // Check if availability matches expected
     const availabilityMatches = availability.available === testCase.expected.available;
-    const roomCountMatches = testCase.expected.roomCount === undefined || 
-      availability.roomCount === testCase.expected.roomCount;
+    const roomCountMatches = testCase.expected.roomCount === undefined
+      ? true
+      : availability.roomCount === testCase.expected.roomCount;
     
     const testPassed = availabilityMatches && roomCountMatches;
     
