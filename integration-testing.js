@@ -5,8 +5,12 @@
  * - validate-voucher
  *
  * Used for both local runs and GitHub Actions scheduled runs.
+ *
+ * Locally: put SUPABASE_ANON_KEY (and optional SUPABASE_URL) in `.env` in the repo root.
+ * CI: secrets are injected by GitHub Actions (no .env file).
  */
 
+import "dotenv/config";
 import https from "https";
 
 const TEST_CONFIG = {
