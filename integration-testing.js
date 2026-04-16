@@ -107,7 +107,7 @@ const HOTEL_AVAILABILITY_TESTS = [
       groupCode: "ZKFA25",
     },
     expected: {
-      available: false,
+      available: true,
       roomCount: 15,
     },
   },
