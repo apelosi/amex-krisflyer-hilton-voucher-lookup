@@ -11,9 +11,10 @@ on:
     - cron: '0 2 * * *'
 
 jobs:
-  test-hotel-availability:
+  # Runs integration-testing.js: voucher validation (6) + hotel availability (6).
+  integration-tests:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
