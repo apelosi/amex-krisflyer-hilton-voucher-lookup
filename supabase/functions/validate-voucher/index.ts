@@ -56,8 +56,7 @@ async function validateWithBrowserless(
   const browserlessUrl =
     `https://production-sfo.browserless.io/function?token=${encodeURIComponent(token)}&stealth=true`;
 
-  const esc = (s: string) =>
-    s.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "");
+  const esc = (s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "");
 
   const puppeteerScript = `
     module.exports = async ({ page }) => {
@@ -192,8 +191,7 @@ async function validateWithBrowserless(
 }
 
 function buildScraperCustomJs(creditCard: string, voucherCode: string): string {
-  const escJs = (s: string) =>
-    s.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\r|\n/g, "");
+  const escJs = (s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\r|\n/g, "");
 
   return `
 (async () => {

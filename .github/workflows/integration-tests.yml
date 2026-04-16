@@ -34,6 +34,14 @@ jobs:
         
     - name: Deploy Edge Functions used by integration tests
       run: |
+        set -euo pipefail
+        supabase --version
+        # Length-only check: confirms the secret is wired without printing the token
+        echo "SUPABASE_ACCESS_TOKEN length: ${#SUPABASE_ACCESS_TOKEN}"
+        if [ "${#SUPABASE_ACCESS_TOKEN}" -lt 20 ]; then
+          echo "SUPABASE_ACCESS_TOKEN looks missing or too short for a Supabase PAT — check repo secret name/value." >&2
+          exit 1
+        fi
         supabase functions deploy check-hotel-availability --project-ref ynlnrvuqypmwpevabtdc
         supabase functions deploy validate-voucher --project-ref ynlnrvuqypmwpevabtdc
         supabase functions deploy fetch-hotel-data --project-ref ynlnrvuqypmwpevabtdc
