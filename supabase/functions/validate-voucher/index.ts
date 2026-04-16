@@ -170,11 +170,30 @@ async function validateVoucher(creditCard: string, voucherCode: string): Promise
               }
               
               // Check for specific error text (your original approach)
+              const usedVoucherError = document.body.innerHTML.includes("You've used your voucher code. Please provide another one.");
+              if (usedVoucherError) {
+                errorFound = true;
+                errorDetails.push({ type: 'used-voucher', found: true });
+                document.body.setAttribute('data-validation-message', "You've used your voucher code. Please provide another one.");
+              }
+
               const specificError = document.body.innerHTML.includes("You've provided an incorrect entry. Please try again.");
               if (specificError) {
                 errorFound = true;
                 errorDetails.push({ type: 'specific-error-text', found: true });
+                document.body.setAttribute('data-validation-message', "You've provided an incorrect entry. Please try again.");
               }
+
+              // Click submit if present (matches real user flow)
+              try {
+                const btns = Array.from(document.querySelectorAll('button'));
+                const submitBtn = document.querySelector('button[type=\"submit\"], input[type=\"submit\"]') ||
+                  btns.find(b => (b.textContent || '').trim().toLowerCase() === 'submit') ||
+                  btns.find(b => (b.textContent || '').trim().toLowerCase().includes('submit'));
+                if (submitBtn) {
+                  submitBtn.click();
+                }
+              } catch (e) {}
               
               // Set result marker
               if (errorFound) {
@@ -221,9 +240,16 @@ async function validateVoucher(creditCard: string, voucherCode: string): Promise
       const html = await response.text();
       console.log(`${creditCard} fast HTML length: ${html.length}`);
 
-      // Check the enhanced validation result using ChatGPT-inspired approach
+      // Check the enhanced validation result
       if (html.includes('data-validation-result="INVALID"')) {
         console.log(`${creditCard} FAST INVALID: Enhanced validation detected errors`);
+
+        // Prefer returning the exact on-page message if we captured it.
+        const msgMatch = html.match(/data-validation-message="([^"]+)"/);
+        if (msgMatch) {
+          const msg = msgMatch[1].replace(/&quot;/g, '"');
+          return { valid: false, error: msg };
+        }
         
         // Extract error details if available
         const errorDetailsMatch = html.match(/data-error-details="([^"]+)"/);
@@ -247,10 +273,16 @@ async function validateVoucher(creditCard: string, voucherCode: string): Promise
       }
       
       // Fallback to simple checks if enhanced validation didn't complete
+      const hasUsedVoucherError = html.includes("You've used your voucher code. Please provide another one.");
       const hasSpecificError = html.includes("You've provided an incorrect entry. Please try again.");
       const hasErrorClass = html.includes('class="error"') || html.includes('class="invalid"');
       const hasAriaInvalid = html.includes('aria-invalid="true"');
       
+      if (hasUsedVoucherError) {
+        console.log(`${creditCard} FAST INVALID: used voucher message found`);
+        return { valid: false, error: "You've used your voucher code. Please provide another one." };
+      }
+
       if (hasSpecificError || hasErrorClass || hasAriaInvalid) {
         console.log(`${creditCard} FAST INVALID: Basic error indicators found`);
         return {

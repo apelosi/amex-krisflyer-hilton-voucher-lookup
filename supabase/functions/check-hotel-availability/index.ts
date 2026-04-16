@@ -146,22 +146,24 @@ serve(async (req) => {
     // Note: Voucher validation is handled in the frontend before calling this function
     console.log('Proceeding with hotel availability check...');
 
-    // Get hotel data to validate the hotel code
-    const { data: hotelData, error: hotelError } = await supabase.functions.invoke('fetch-hotel-data');
-
-    if (hotelError || !hotelData?.success) {
-      throw new Error('Failed to fetch hotel data for hotel code validation');
+    // Use the provided hotel code directly. We *try* to look up the name via fetch-hotel-data,
+    // but do not fail availability checks just because the hotel-data scrape/cache is stale.
+    const hotelCode = requestData.hotel;
+    let hotelName: string | undefined;
+    try {
+      const { data: hotelData } = await supabase.functions.invoke('fetch-hotel-data');
+      if (hotelData?.success && hotelData?.hotelCodes && hotelData.hotelCodes[hotelCode]) {
+        hotelName = hotelData.hotelCodes[hotelCode];
+      }
+    } catch (_) {
+      // ignore
     }
 
-    // Validate that the provided hotel code exists in the hotel codes mapping
-    const hotelCode = requestData.hotel; // The hotel parameter is already the hotel code
-
-    if (!hotelData.hotelCodes || !hotelData.hotelCodes[hotelCode]) {
-      throw new Error(`Hotel code "${hotelCode}" not found in available hotels`);
+    if (hotelName) {
+      console.log(`Using hotelCode: ${hotelCode} for hotel: ${hotelName}`);
+    } else {
+      console.log(`Using hotelCode: ${hotelCode} (name lookup unavailable)`);
     }
-    
-    const hotelName = hotelData.hotelCodes[hotelCode];
-    console.log(`Using hotelCode: ${hotelCode} for hotel: ${hotelName}`);
 
     // Handle multiple dates with parallel processing - check ALL dates
     const datesToCheck = requestData.dateRange || [requestData.arrivalDate];
@@ -389,7 +391,7 @@ async function checkWithBrowserlessFunction(
   url: string,
   token: string,
 ): Promise<{ available: boolean; roomCount?: number }> {
-  const browserlessUrl = `https://production-sfo.browserless.io/function?token=${encodeURIComponent(token)}`;
+  const browserlessUrl = `https://production-sfo.browserless.io/function?token=${encodeURIComponent(token)}&stealth=true`;
 
   const escapedUrl = url.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "");
 
