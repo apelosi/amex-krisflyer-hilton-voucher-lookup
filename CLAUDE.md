@@ -1,5 +1,7 @@
 # Claude Code Instructions
 
-## Task Master AI Instructions
-**Import Task Master's development workflow commands and guidelines, treat as if import is in the main CLAUDE.md file.**
-@./.taskmaster/CLAUDE.md
+Keep repo documentation in `docs/` and keep `README.md` product-focused.
+
+- Development: `docs/development.md`
+- Testing: `docs/testing.md`
+- Operations: `docs/operations.md`

@@ -1,73 +1,23 @@
-# Welcome to your Lovable project
+# Amex KrisFlyer ↔ Hilton voucher availability checker
 
-## Project info
+This is a small web app that helps check **hotel availability** for Amex KrisFlyer / Hilton voucher-related rates.
 
-**URL**: https://lovable.dev/projects/5cb7cfc5-0c99-478d-a386-46956b900d22
+It’s built as:
 
-## How can I edit this code?
+- **Frontend**: Vite + React (`src/`)
+- **Backend**: Supabase Edge Functions (`supabase/functions/`)
 
-There are several ways of editing your application.
+## What it does (high level)
 
-**Use Lovable**
+- Accepts voucher inputs (e.g., voucher code / hotel code / date)
+- Calls a Supabase Edge Function that constructs a Hilton booking URL and attempts to determine whether voucher-rate availability exists for the requested date(s)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/5cb7cfc5-0c99-478d-a386-46956b900d22) and start prompting.
+## Nightly integration tests
 
-Changes made via Lovable will be committed automatically to this repo.
+There is a scheduled GitHub Actions workflow (`.github/workflows/integration-tests.yml`) that deploys the test function and runs integration tests nightly.
 
-**Use your preferred IDE**
+## Developer docs
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/5cb7cfc5-0c99-478d-a386-46956b900d22) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- `docs/development.md`
+- `docs/testing.md`
+- `docs/operations.md`
