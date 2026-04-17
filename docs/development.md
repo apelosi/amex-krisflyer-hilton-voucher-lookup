@@ -23,9 +23,11 @@ After changing Edge Function code, deploy with the CLI (or your CI workflow) so 
 
 ### Quick E2E check (without the full 12-test suite)
 
-- **Browser (dev only):** open `http://localhost:5173/?demo=1` — prefills the same values as **Voucher Test 1** + **Hotel Availability Test 3** (Singapore / SINGI, etc.). Submit once to exercise `validate-voucher` + one `check-hotel-availability` path (the full calendar still scans many dates; see below if you want to shorten that later).
+- **Browser (automated, no `.env` in Node):** `npx playwright install chromium` once, then `npm run test:e2e:smoke`. Playwright builds the app, serves it, opens `/?demo=1`, and clicks **Check Availability**. Supabase calls use the **anon key embedded in the built app** (`client.ts` fallbacks / `VITE_*` at build time), so the test runner does **not** need `SUPABASE_ANON_KEY` in the shell. Against a deployed site: `E2E_BASE_URL=https://your-site.example npm run test:e2e:smoke`.
 
-- **CLI:** `npm run test:smoke` — hits hosted functions with **two** API calls (voucher #1 + hotel #3). Needs `.env` with anon/publishable key like `npm run test:integration`.
+- **Browser (manual):** `npm run dev` then open `http://localhost:5173/?demo=1` — same prefilled golden path.
+
+- **CLI (needs anon in env):** `npm run test:smoke` — two direct HTTPS calls to Edge Functions. Use when you want to assert exact room counts without a browser.
 
 ### GitHub Actions
 

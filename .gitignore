@@ -31,6 +31,12 @@ node_modules/
 .vscode
 # OS specific
 
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # Task files
 # tasks.json
 # tasks/ 
