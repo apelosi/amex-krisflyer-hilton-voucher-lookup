@@ -207,21 +207,21 @@ export function parseAvailability(html: string): { available: boolean; roomCount
     };
   }
 
+  const anyRoomCount = extractRoomCount();
+  if (anyRoomCount !== undefined) {
+    console.log(`✓ Room count found: ${anyRoomCount}`);
+    return { available: true, roomCount: anyRoomCount };
+  }
+
   if (hasVoucherRates) {
     console.log("✓ Voucher rates indicator found");
-    const roomCount = extractRoomCount();
-    if (roomCount !== undefined) {
-      console.log(`✓ Room count found: ${roomCount}`);
-      return { available: true, roomCount };
-    }
     console.log("✓ Voucher rates found but no specific count, assuming 1+ rooms");
     return { available: true, roomCount: 1 };
   }
 
   if (looksLikeBookableRoomListing(scrubbed.replace(/<[^>]+>/g, " "), scrubbed)) {
-    const roomCount = extractRoomCount();
     console.log("✓ Bookable room listing detected (non-voucher heuristics)");
-    return { available: true, roomCount: roomCount ?? 1 };
+    return { available: true, roomCount: 1 };
   }
 
   console.log("⚠ No clear indicators found in HTML, assuming unavailable");
