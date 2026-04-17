@@ -1,0 +1,20 @@
+---
+description: Agent must verify the web app after changes without asking the user to run tests
+globs: "**/*"
+alwaysApply: true
+---
+
+## Autonomous verify loop (this repo)
+
+**User intent:** The agent fixes the app and **itself** runs tests to know pass/fail. Do **not** tell the user to open GitHub Actions or run npm unless the verify command fails for an environment reason you cannot fix.
+
+After **any** change to `src/**`, `supabase/functions/**`, `e2e/**`, or `playwright.config.ts`:
+
+1. From the repo root run: **`npm run verify:golden-path`**
+   - This builds the app, serves it, and runs Playwright on `/?demo=1` (golden path). **No `SUPABASE_ANON_KEY` in the shell is required.**
+2. Report **PASS** or **FAIL** with the relevant log lines.
+3. If FAIL, fix and run **`npm run verify:golden-path`** again before ending the turn.
+
+First-time sandbox setup (if Playwright errors about browsers): `npx playwright install chromium` once, then re-run verify.
+
+Optional deeper checks (only when anon key is available in the environment): `npm run test:smoke` (direct Edge Function API smoke).

@@ -13,6 +13,7 @@
     "test:smoke": "node integration-testing.js --smoke",
     "test:e2e": "playwright test",
     "test:e2e:smoke": "playwright test e2e/smoke-demo.spec.ts",
+    "verify:golden-path": "CI=1 npm run test:e2e:smoke",
     "test:deploy": "supabase functions deploy check-hotel-availability && supabase functions deploy validate-voucher && supabase functions deploy fetch-hotel-data && npm run test:integration"
   },
   "dependencies": {
