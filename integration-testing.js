@@ -6,15 +6,18 @@
  *
  * Used for both local runs and GitHub Actions scheduled runs.
  *
- * Locally: put SUPABASE_ANON_KEY (and optional SUPABASE_URL) in `.env` in the repo root.
+ * Locally: put secrets in `.env.local` or `.env` in the repo root (both gitignored).
  * Same publishable/anon key may be named VITE_SUPABASE_PUBLISHABLE_KEY — that is accepted as a fallback.
  * CI: secrets are injected by GitHub Actions (no .env file).
  *
  * Fast path: `node integration-testing.js --smoke` (Voucher Test 1 + Hotel Test 3 only).
  */
 
-import "dotenv/config";
+import dotenv from "dotenv";
 import https from "https";
+
+dotenv.config();
+dotenv.config({ path: ".env.local", override: true });
 
 function resolveSupabaseAnonKey() {
   return (
