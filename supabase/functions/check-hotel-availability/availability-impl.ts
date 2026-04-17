@@ -186,6 +186,14 @@ export function parseAvailability(html: string): { available: boolean; roomCount
     return undefined;
   };
 
+  // If we can confidently extract a positive room count from the page, treat it as available.
+  // This is intentionally provider-agnostic (works for Firecrawl/ScraperAPI/Browserless HTML).
+  const explicitRoomCount = extractRoomCount();
+  if (explicitRoomCount !== undefined) {
+    console.log(`✓ Explicit room count found: ${explicitRoomCount}`);
+    return { available: true, roomCount: explicitRoomCount };
+  }
+
   const hasUnavailable = UNAVAILABLE_PHRASES.some((indicator) =>
     normalizedHtml.includes(indicator.toLowerCase())
   );
@@ -481,8 +489,154 @@ async function tryScraperApiForAvailability(
   }
 }
 
+async function tryFirecrawlForAvailability(
+  hiltonUrl: string,
+  dateLabel: string,
+  apiKey: string,
+): Promise<{ available: boolean; roomCount?: number; meta?: Record<string, unknown> } | null> {
+  try {
+    console.log(`${dateLabel} Firecrawl: scrape (stealth proxy)`);
+    const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        url: hiltonUrl,
+        formats: ["html", "markdown"],
+        onlyMainContent: true,
+        proxy: "stealth",
+        mobile: false,
+        timeout: 30000,
+        actions: [{ type: "wait", milliseconds: 3000 }],
+      }),
+    });
+
+    const txt = await response.text();
+    if (!response.ok) {
+      console.log(`${dateLabel} Firecrawl failed: ${response.status} ${txt.slice(0, 200)}`);
+      return null;
+    }
+
+    let data: any;
+    try {
+      data = JSON.parse(txt);
+    } catch {
+      console.log(`${dateLabel} Firecrawl non-JSON response`);
+      return null;
+    }
+
+    const html = typeof data?.data?.html === "string" ? data.data.html : "";
+    const md = typeof data?.data?.markdown === "string" ? data.data.markdown : "";
+    const combined = `${md}\n${html}`.trim();
+    if (combined.length < 200) {
+      console.log(`${dateLabel} Firecrawl: empty content`);
+      return null;
+    }
+
+    const parsed = parseAvailability(combined);
+    if (parsed.available) {
+      return {
+        ...parsed,
+        meta: { provider: "firecrawl", htmlLength: html.length, mdLength: md.length, title: data?.data?.metadata?.title },
+      };
+    }
+
+    const visibleish = stripExecutableHtml(html).replace(/<[^>]+>/g, " ");
+    if (looksLikeBookableRoomListing(visibleish, html)) {
+      const n = parsed.roomCount && parsed.roomCount > 0 ? parsed.roomCount : 1;
+      return {
+        available: true,
+        roomCount: n,
+        meta: { provider: "firecrawl", heuristic: "bookableListing", htmlLength: html.length, mdLength: md.length },
+      };
+    }
+    return { ...parsed, meta: { provider: "firecrawl", htmlLength: html.length, mdLength: md.length } };
+  } catch (e) {
+    console.log(`${dateLabel} Firecrawl error: ${(e as Error).message}`);
+    return null;
+  }
+}
+
+async function tryJigsawStackForAvailability(
+  hiltonUrl: string,
+  dateLabel: string,
+  apiKey: string,
+): Promise<{ available: boolean; roomCount?: number; meta?: Record<string, unknown> } | null> {
+  try {
+    console.log(`${dateLabel} JigsawStack: ai/scrape (proxy)`);
+    const response = await fetch("https://api.jigsawstack.com/v1/ai/scrape", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+      },
+      body: JSON.stringify({
+        url: hiltonUrl,
+        proxy: true,
+        wait_for: "networkidle",
+        element_prompts: [
+          "Extract hotel room availability status",
+          "Extract number of rooms available",
+          "Extract voucher rate information",
+        ],
+        headers: {
+          "Accept-Language": "en-US,en;q=0.9",
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+      }),
+    });
+
+    const txt = await response.text();
+    if (!response.ok) {
+      console.log(`${dateLabel} JigsawStack failed: ${response.status} ${txt.slice(0, 200)}`);
+      return null;
+    }
+
+    let payload: any;
+    try {
+      payload = JSON.parse(txt);
+    } catch {
+      console.log(`${dateLabel} JigsawStack non-JSON response`);
+      return null;
+    }
+
+    const context = typeof payload?.context === "string" ? payload.context : "";
+    const elements = Array.isArray(payload?.data) ? payload.data : [];
+    const joined = [
+      context,
+      ...elements.map((e: any) => (typeof e?.result === "string" ? `${e.element}: ${e.result}` : "")),
+    ].join("\n");
+
+    const parsed = parseAvailability(joined);
+    if (parsed.available) {
+      return { ...parsed, meta: { provider: "jigsawstack", tokens: payload?._usage?.tokens } };
+    }
+
+    // Heuristic: any extracted element that contains "available" + a number is a signal.
+    const num = joined.match(/(\d+)\s+rooms?/i);
+    if (num && !textImpliesUnavailable(joined)) {
+      const n = parseInt(num[1], 10);
+      if (!Number.isNaN(n) && n > 0) {
+        return { available: true, roomCount: n, meta: { provider: "jigsawstack", heuristic: "element_rooms" } };
+      }
+    }
+
+    if (joined.toLowerCase().includes("available") && !textImpliesUnavailable(joined)) {
+      return { available: true, roomCount: 1, meta: { provider: "jigsawstack", heuristic: "element_available" } };
+    }
+
+    return { ...parsed, meta: { provider: "jigsawstack", tokens: payload?._usage?.tokens } };
+  } catch (e) {
+    console.log(`${dateLabel} JigsawStack error: ${(e as Error).message}`);
+    return null;
+  }
+}
+
 type ProviderOutcome = {
-  source: "browserless" | "scraperapi";
+  source: "browserless" | "scraperapi" | "firecrawl" | "jigsawstack";
   available: boolean;
   roomCount?: number;
   error?: string;
@@ -516,8 +670,10 @@ export async function checkSingleDateAvailability(
 
   const scraperApiKey = Deno.env.get("SCRAPERAPI_KEY");
   const browserlessToken = Deno.env.get("BROWSERLESS_API_KEY");
+  const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
+  const jigsawKey = Deno.env.get("JIGSAWSTACK_API_KEY");
 
-  if (!scraperApiKey && !browserlessToken) {
+  if (!scraperApiKey && !browserlessToken && !firecrawlKey && !jigsawKey) {
     return {
       date: requestData.arrivalDate!,
       available: false,
@@ -561,6 +717,32 @@ export async function checkSingleDateAvailability(
           };
         }
         return { source: "scraperapi" as const, ...r };
+      })(),
+    );
+  }
+
+  if (firecrawlKey) {
+    tasks.push(
+      (async () => {
+        const r = await tryFirecrawlForAvailability(hiltonUrl, label, firecrawlKey);
+        if (!r) {
+          console.log(`${label} Firecrawl: no conclusive result (skipped in merge)`);
+          return { source: "firecrawl" as const, available: false, roomCount: 0, skipped: true };
+        }
+        return { source: "firecrawl" as const, ...r };
+      })(),
+    );
+  }
+
+  if (jigsawKey) {
+    tasks.push(
+      (async () => {
+        const r = await tryJigsawStackForAvailability(hiltonUrl, label, jigsawKey);
+        if (!r) {
+          console.log(`${label} JigsawStack: no conclusive result (skipped in merge)`);
+          return { source: "jigsawstack" as const, available: false, roomCount: 0, skipped: true };
+        }
+        return { source: "jigsawstack" as const, ...r };
       })(),
     );
   }
