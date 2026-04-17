@@ -1,0 +1,24 @@
+# Browser E2E smoke: no SUPABASE_ANON_KEY in GitHub secrets required.
+# Uses anon key baked into the app (client.ts / Vite build).
+name: E2E smoke (?demo=1)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, develop, "cursor/**" ]
+
+jobs:
+  e2e-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:smoke
+        env:
+          CI: "1"

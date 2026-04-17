@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,11 @@ interface AvailabilityResult {
   bookingUrl?: string;
   groupCode?: string;
 }
+/** Dev-only golden path: same as integration smoke (Voucher Test 1 + Hotel Test 3). */
+const DEMO_QUERY = "demo";
+
 export function VoucherForm() {
+  const [searchParams] = useSearchParams();
   const [creditCard, setCreditCard] = useState("");
   const [voucherCode, setVoucherCode] = useState("");
   const [destination, setDestination] = useState<string | undefined>(undefined);
@@ -97,6 +102,17 @@ export function VoucherForm() {
 
     fetchHotelData();
   }, [toast]);
+
+  // Prefill when ?demo=1 (golden path: Voucher Test 1 + Hotel Availability Test 3). Works in dev, preview, and production builds (incl. Playwright E2E).
+  useEffect(() => {
+    const v = searchParams.get(DEMO_QUERY);
+    if (v !== "1" && v !== "true") return;
+    setCreditCard("377361");
+    setVoucherCode("P370336ZYH");
+    setVoucherExpiry("2026-07-31");
+    setDestination("Singapore");
+    setHotel("SINGI");
+  }, [searchParams]);
   
   const isFormValid = creditCard.length === 6 && voucherCode.length === 10 && destination && destination !== 'Select Destination' && hotel && hotel !== 'Select Hotel' && voucherExpiry;
   const canShowDestination = creditCard.length === 6 && voucherCode.length === 10 && voucherExpiry;
@@ -566,10 +582,22 @@ export function VoucherForm() {
                         return <div key={`empty-${idx}`} className="aspect-square" />;
                       }
 
+                      const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+                      const e2eStatus = !hasResult
+                        ? "pending"
+                        : result.available === true
+                          ? "available"
+                          : result.available === false
+                            ? "unavailable"
+                            : "unknown";
+
                       return (
                         <div
                           key={date.toISOString()}
                           className="aspect-square border rounded p-1 text-center relative"
+                          data-testid={`calendar-day-${ymd}`}
+                          data-e2e-status={e2eStatus}
+                          data-e2e-rooms={hasResult && result.roomCount != null ? String(result.roomCount) : ""}
                         >
                           <div className="text-xs text-muted-foreground mb-1">
                             {date.getDate()}
