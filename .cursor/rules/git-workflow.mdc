@@ -1,0 +1,47 @@
+---
+description: Git workflow — always use branch + PR, never commit directly to main
+alwaysApply: true
+---
+
+# Git Workflow
+
+**Never commit or push directly to `main`.** Always use a branch and open a PR.
+
+## Branch + PR Flow
+
+1. **Create a branch** from `main` with a descriptive name:
+   - `feat/short-description` — new feature
+   - `fix/short-description` — bug fix
+   - `chore/short-description` — maintenance, config, docs
+
+2. **Commit** changes to the branch.
+
+3. **Push** the branch to `origin`.
+
+4. **Open a PR** targeting `main` using `gh pr create`.
+
+## Example
+
+```bash
+git checkout main && git pull origin main
+git checkout -b fix/update-env-example
+git add <files>
+git commit -m "fix: update .env.example with new keys"
+git push -u origin fix/update-env-example
+gh pr create --title "fix: update .env.example with new keys" --body "$(cat <<'EOF'
+## Summary
+- Updated .env.example with new required keys
+
+## Test plan
+- [ ] Verify env vars load correctly
+EOF
+)"
+```
+
+## Rules
+
+- ❌ `git push origin main` — never do this
+- ❌ `git commit` directly on `main` — never do this
+- ✅ Always branch → commit → push branch → `gh pr create`
+- On rebase conflict: keep local version by default
+- If remote is ahead: `git pull --rebase origin main` before pushing
