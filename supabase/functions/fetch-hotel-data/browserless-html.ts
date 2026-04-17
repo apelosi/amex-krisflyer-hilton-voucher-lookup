@@ -7,15 +7,15 @@ export async function fetchHtmlViaBrowserless(url: string, token: string): Promi
     `https://production-sfo.browserless.io/function?token=${encodeURIComponent(token)}&stealth=true`;
   const esc = (s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "");
   const script = `
-    module.exports = async ({ page }) => {
-      await page.setViewport({ width: 1280, height: 900 });
-      await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
-      await page.goto('${esc(url)}', { waitUntil: 'networkidle2', timeout: 90000 });
-      await new Promise((r) => setTimeout(r, 5000));
-      const html = await page.content();
-      return { html };
-    };
-  `;
+export default async ({ page }) => {
+  await page.setViewport({ width: 1280, height: 900 });
+  await page.setExtraHTTPHeaders({ 'Accept-Language': 'en-US,en;q=0.9' });
+  await page.goto('${esc(url)}', { waitUntil: 'networkidle2', timeout: 90000 });
+  await new Promise((r) => setTimeout(r, 5000));
+  const html = await page.content();
+  return { data: { html }, type: 'application/json' };
+};
+`;
   const res = await fetch(browserlessUrl, {
     method: "POST",
     headers: { "Content-Type": "application/javascript" },
@@ -27,6 +27,8 @@ export async function fetchHtmlViaBrowserless(url: string, token: string): Promi
   }
   const data = await res.json();
   if (typeof data === "string") return data;
+  const top = data as { data?: { html?: string }; html?: string };
+  if (top?.data && typeof top.data.html === "string") return top.data.html;
   if (data && typeof (data as { html?: string }).html === "string") {
     return (data as { html: string }).html;
   }
