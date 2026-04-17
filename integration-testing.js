@@ -7,15 +7,35 @@
  * Used for both local runs and GitHub Actions scheduled runs.
  *
  * Locally: put SUPABASE_ANON_KEY (and optional SUPABASE_URL) in `.env` in the repo root.
+ * Same publishable/anon key may be named VITE_SUPABASE_PUBLISHABLE_KEY — that is accepted as a fallback.
  * CI: secrets are injected by GitHub Actions (no .env file).
+ *
+ * Fast path: `node integration-testing.js --smoke` (Voucher Test 1 + Hotel Test 3 only).
  */
 
 import "dotenv/config";
 import https from "https";
 
+function resolveSupabaseAnonKey() {
+  return (
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    ""
+  );
+}
+
+function resolveSupabaseUrl() {
+  return (
+    process.env.SUPABASE_URL ||
+    process.env.VITE_SUPABASE_URL ||
+    "https://ynlnrvuqypmwpevabtdc.supabase.co"
+  );
+}
+
 const TEST_CONFIG = {
-  supabaseUrl: process.env.SUPABASE_URL || "https://ynlnrvuqypmwpevabtdc.supabase.co",
-  anonKey: process.env.SUPABASE_ANON_KEY,
+  supabaseUrl: resolveSupabaseUrl(),
+  anonKey: resolveSupabaseAnonKey(),
 };
 
 const HOTEL_AVAILABILITY_TESTS = [
@@ -174,7 +194,14 @@ function makeRequest(url, options = {}) {
 
 function requireEnv() {
   if (!TEST_CONFIG.anonKey) {
-    console.error("❌ SUPABASE_ANON_KEY environment variable is required");
+    console.error(
+      "❌ Missing Supabase anon/publishable key. Set one of:\n" +
+        "   SUPABASE_ANON_KEY\n" +
+        "   VITE_SUPABASE_PUBLISHABLE_KEY (same value as in the dashboard)\n" +
+        "Optional: SUPABASE_URL or VITE_SUPABASE_URL\n\n" +
+        "Cursor Cloud Agent: My Secrets do not always reach the shell that runs `npm run`.\n" +
+        "Use GitHub Actions (workflow_dispatch or push) for automated runs, or keep keys in a local `.env` for local `npm run test:integration`.",
+    );
     process.exit(1);
   }
 }
@@ -347,7 +374,42 @@ async function runSuite(title, tests, runner) {
   return allPassed;
 }
 
+/** Voucher Test 1 + Hotel Availability Test 3 — fast path for E2E / CI while iterating. */
+const SMOKE_VOUCHER_CASE = VOUCHER_VALIDATION_TESTS[0];
+const SMOKE_HOTEL_CASE = HOTEL_AVAILABILITY_TESTS[2];
+
+async function runSmoke() {
+  console.log("🚀 Smoke mode (--smoke): Voucher Test 1 + Hotel Availability Test 3 only");
+  console.log("============================================================================");
+  requireEnv();
+  const start = Date.now();
+
+  const v = await testVoucherValidation(SMOKE_VOUCHER_CASE);
+  console.log(`\n--- ${SMOKE_VOUCHER_CASE.name} ---`);
+  console.log(v.passed ? "✅ PASSED" : "❌ FAILED", v.error || "");
+  console.log(`  Duration: ${v.duration}ms`);
+
+  const h = await testHotelAvailability(SMOKE_HOTEL_CASE);
+  console.log(`\n--- ${SMOKE_HOTEL_CASE.name} ---`);
+  console.log(h.passed ? "✅ PASSED" : "❌ FAILED", h.error || "");
+  console.log(`  Duration: ${h.duration}ms`);
+
+  const ok = v.passed && h.passed;
+  const duration = Date.now() - start;
+  console.log("\n🎯 SMOKE SUMMARY");
+  console.log("================");
+  console.log(`Total Duration: ${duration}ms`);
+  console.log(`Result: ${ok ? "✅ PASS" : "❌ FAIL"}`);
+  process.exit(ok ? 0 : 1);
+}
+
 async function main() {
+  const smokeMode = process.argv.includes("--smoke");
+  if (smokeMode) {
+    await runSmoke();
+    return;
+  }
+
   console.log("🚀 Starting Integration Test Suite");
   console.log("==================================");
   requireEnv();
