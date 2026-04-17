@@ -515,24 +515,21 @@ async function tryFirecrawlForAvailability(
 
     const txt = await response.text();
     if (!response.ok) {
-      console.log(`${dateLabel} Firecrawl failed: ${response.status} ${txt.slice(0, 200)}`);
-      return null;
+      throw new Error(`Firecrawl failed: ${response.status} ${txt.slice(0, 400)}`);
     }
 
     let data: any;
     try {
       data = JSON.parse(txt);
     } catch {
-      console.log(`${dateLabel} Firecrawl non-JSON response`);
-      return null;
+      throw new Error(`Firecrawl non-JSON response: ${txt.slice(0, 400)}`);
     }
 
     const html = typeof data?.data?.html === "string" ? data.data.html : "";
     const md = typeof data?.data?.markdown === "string" ? data.data.markdown : "";
     const combined = `${md}\n${html}`.trim();
     if (combined.length < 200) {
-      console.log(`${dateLabel} Firecrawl: empty content`);
-      return null;
+      throw new Error("Firecrawl empty content");
     }
 
     const parsed = parseAvailability(combined);
@@ -554,8 +551,8 @@ async function tryFirecrawlForAvailability(
     }
     return { ...parsed, meta: { provider: "firecrawl", htmlLength: html.length, mdLength: md.length } };
   } catch (e) {
-    console.log(`${dateLabel} Firecrawl error: ${(e as Error).message}`);
-    return null;
+    // Throw so the caller can surface the error in debug response.
+    throw e;
   }
 }
 
@@ -591,16 +588,14 @@ async function tryJigsawStackForAvailability(
 
     const txt = await response.text();
     if (!response.ok) {
-      console.log(`${dateLabel} JigsawStack failed: ${response.status} ${txt.slice(0, 200)}`);
-      return null;
+      throw new Error(`JigsawStack failed: ${response.status} ${txt.slice(0, 400)}`);
     }
 
     let payload: any;
     try {
       payload = JSON.parse(txt);
     } catch {
-      console.log(`${dateLabel} JigsawStack non-JSON response`);
-      return null;
+      throw new Error(`JigsawStack non-JSON response: ${txt.slice(0, 400)}`);
     }
 
     const context = typeof payload?.context === "string" ? payload.context : "";
@@ -630,8 +625,8 @@ async function tryJigsawStackForAvailability(
 
     return { ...parsed, meta: { provider: "jigsawstack", tokens: payload?._usage?.tokens } };
   } catch (e) {
-    console.log(`${dateLabel} JigsawStack error: ${(e as Error).message}`);
-    return null;
+    // Throw so the caller can surface the error in debug response.
+    throw e;
   }
 }
 
