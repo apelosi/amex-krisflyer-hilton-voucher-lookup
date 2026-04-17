@@ -103,9 +103,8 @@ export function VoucherForm() {
     fetchHotelData();
   }, [toast]);
 
-  // Prefill form in dev when ?demo=1 (matches smoke: Voucher Test 1 + Hotel Availability Test 3).
+  // Prefill when ?demo=1 (golden path: Voucher Test 1 + Hotel Availability Test 3). Works in dev, preview, and production builds (incl. Playwright E2E).
   useEffect(() => {
-    if (!import.meta.env.DEV) return;
     const v = searchParams.get(DEMO_QUERY);
     if (v !== "1" && v !== "true") return;
     setCreditCard("377361");
