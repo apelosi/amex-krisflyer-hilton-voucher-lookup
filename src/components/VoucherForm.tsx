@@ -582,10 +582,22 @@ export function VoucherForm() {
                         return <div key={`empty-${idx}`} className="aspect-square" />;
                       }
 
+                      const ymd = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+                      const e2eStatus = !hasResult
+                        ? "pending"
+                        : result.available === true
+                          ? "available"
+                          : result.available === false
+                            ? "unavailable"
+                            : "unknown";
+
                       return (
                         <div
                           key={date.toISOString()}
                           className="aspect-square border rounded p-1 text-center relative"
+                          data-testid={`calendar-day-${ymd}`}
+                          data-e2e-status={e2eStatus}
+                          data-e2e-rooms={hasResult && result.roomCount != null ? String(result.roomCount) : ""}
                         >
                           <div className="text-xs text-muted-foreground mb-1">
                             {date.getDate()}
