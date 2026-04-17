@@ -20,9 +20,11 @@ serve(async (req) => {
   try {
     const scraperApiKey = Deno.env.get("SCRAPERAPI_KEY");
     const browserlessToken = Deno.env.get("BROWSERLESS_API_KEY");
-    if (!scraperApiKey && !browserlessToken) {
+    const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
+    const jigsawKey = Deno.env.get("JIGSAWSTACK_API_KEY");
+    if (!scraperApiKey && !browserlessToken && !firecrawlKey && !jigsawKey) {
       throw new Error(
-        "No scraping provider configured. Set SCRAPERAPI_KEY and/or BROWSERLESS_API_KEY in Supabase secrets.",
+        "No scraping provider configured. Set at least one of: SCRAPERAPI_KEY, BROWSERLESS_API_KEY, FIRECRAWL_API_KEY, JIGSAWSTACK_API_KEY in Supabase secrets.",
       );
     }
 
