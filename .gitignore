@@ -26,8 +26,10 @@ dist-ssr
 dev-debug.log
 # Dependency directories
 node_modules/
-# Environment variables
+# Environment variables (never commit real secrets)
 .env
+.env.*
+!.env.example
 .vscode
 # OS specific
 
