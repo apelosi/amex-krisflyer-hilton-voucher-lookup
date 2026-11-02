@@ -11,7 +11,6 @@ This repo has a scheduled GitHub Actions workflow in `.github/workflows/integrat
 ### Required GitHub secrets
 
 - `SUPABASE_ACCESS_TOKEN`
-- `SUPABASE_DB_PASSWORD`
 - `SUPABASE_ANON_KEY`
 - `SCRAPERAPI_KEY` (needed for `fetch-hotel-data` / `validate-voucher` and ScraperAPI fallback)
 
